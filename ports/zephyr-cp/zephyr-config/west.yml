@@ -2,6 +2,13 @@ manifest:
   group-filter:
     - +babblesim
   projects:
+    # Zephyr board definitions for the Framework Daisy keyboard and dongle.
+    # A board root module, so west update is all it takes for
+    # framework_daisy_kb_dvt1 and framework_daisy_dongle_dvt1 to build.
+    - name: framework-daisy-zephyr
+      url: https://github.com/FrameworkComputer/framework-daisy-zephyr
+      revision: 46629327789afec26347b92e8c00d0dda1c4db6b
+      path: modules/boards/framework-daisy-zephyr
     - name: nrf_hw_models
       url: https://github.com/tannewt/ext_nRF_hw_models
       revision: 41cb69cd08848cc31e91ed62d01d397511981919

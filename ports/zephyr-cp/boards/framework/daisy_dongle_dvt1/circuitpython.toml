@@ -1,0 +1,5 @@
+NAME="Daisy Dongle DVT1"
+
+# signed.bin installs over the bootloader already on the hardware;
+# merged.hex is bootloader plus application, for flashing over SWD.
+CIRCUITPY_BUILD_EXTENSIONS = ["signed.bin", "merged.hex", "elf"]

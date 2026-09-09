@@ -312,6 +312,21 @@ CONNECTORS = {
 EXCEPTIONAL_DRIVERS = ["entropy", "gpio", "led"]
 
 
+def sanitize_pin_name(name):
+    """Turn a devicetree label or alias into a name usable as a QSTR.
+
+    Labels are free text and end up in ``MP_QSTR_<name>``, so everything that
+    is not valid in a C identifier has to go -- not just the few characters
+    that happened to turn up first. Daisy's mode switch is labeled "USB/BT mode
+    switch", and the slash used to survive into ``MP_QSTR_USB/BT_MODE_SWITCH``,
+    which does not compile.
+    """
+    name = re.sub(r"[^A-Za-z0-9]+", "_", name.upper()).strip("_")
+    if name[:1].isdigit():
+        name = "_" + name
+    return name
+
+
 def find_flash_devices(device_tree):
     """
     Find all flash devices from a device tree.
@@ -767,6 +782,44 @@ def zephyr_dts_to_cp_board(board_id, portdir, builddir, zephyrbuilddir, mpconfig
                 if boot_button is None:
                     boot_button = (ioport, num)
 
+    # Pins that no driver owns still deserve a name in `board`. Only pins
+    # reached through a gpio-leds, gpio-keys or connector node get one above,
+    # which leaves out anything the board merely routes somewhere -- a keyboard
+    # matrix, for instance, which on Daisy is described by the ZMK shield and
+    # not by the Zephyr board at all. Zephyr's own escape hatch for exactly this
+    # is the /zephyr,user node, so name them there:
+    #
+    #     / {
+    #             zephyr,user {
+    #                     backlight-gpios = <&gpio3 11 GPIO_ACTIVE_HIGH>;
+    #                     ksi-gpios = <&gpio0 0 0>, <&gpio0 1 0>;
+    #             };
+    #     };
+    #
+    # A property with one entry names that pin after the property, so the first
+    # is board.BACKLIGHT. A property with several appends the index, so the
+    # second is board.KSI0 and board.KSI1 -- which keeps a wide matrix from
+    # needing one property per pin.
+    user_node = device_tree.root.nodes.get("zephyr,user")
+    if user_node is not None:
+        for prop_name, prop in user_node.props.items():
+            if not prop_name.endswith("-gpios"):
+                continue
+            base = sanitize_pin_name(prop_name[: -len("-gpios")])
+            if not base:
+                logger.warning(f"/zephyr,user property {prop_name} has no usable name")
+                continue
+            specs = [(offset, ref) for offset, _, ref in prop._markers if ref and ref in ioports]
+            if not specs:
+                logger.warning(
+                    f"/zephyr,user property {prop_name} names no pin on an enabled gpio controller"
+                )
+                continue
+            for i, (offset, ioport) in enumerate(specs):
+                num = int.from_bytes(prop.value[offset + 4 : offset + 8], "big")
+                name = base if len(specs) == 1 else f"{base}{i}"
+                board_names.setdefault((ioport, num), []).append(name)
+
     if len(all_ioports) > 1:
         a, b = all_ioports[:2]
         i = 0
@@ -804,13 +857,9 @@ def zephyr_dts_to_cp_board(board_id, portdir, builddir, zephyrbuilddir, mpconfig
             board_pin_names = board_names.get((ioport, num), [])
 
             for board_pin_name in board_pin_names:
-                board_pin_name = (
-                    board_pin_name.upper()
-                    .replace(" ", "_")
-                    .replace("-", "_")
-                    .replace("(", "")
-                    .replace(")", "")
-                )
+                board_pin_name = sanitize_pin_name(board_pin_name)
+                if not board_pin_name:
+                    continue
                 board_pin_mapping.append(
                     f"{{ MP_ROM_QSTR(MP_QSTR_{board_pin_name}), MP_ROM_PTR(&pin_{pin_object_name}) }},"
                 )

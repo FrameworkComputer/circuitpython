@@ -99,6 +99,70 @@ Behavior and precedence:
 - If neither is provided, defaults from `circuitpython.toml` are used.
 - Use `SHIELD=` (empty) to disable a board default shield for one build.
 
+## Naming extra pins
+
+`board` names pins it can work out from the devicetree: LEDs, buttons and
+recognised connectors. Anything a board merely routes somewhere has no name, so
+name it in the [`/zephyr,user`][zuser] node, in a board overlay:
+
+```dts
+/ {
+	zephyr,user {
+		backlight-gpios = <&gpio3 11 GPIO_ACTIVE_HIGH>;
+		ksi-gpios = <&gpio0 0 GPIO_ACTIVE_HIGH>, <&gpio0 1 GPIO_ACTIVE_HIGH>;
+	};
+};
+```
+
+A property with one entry names that pin after the property, so the first is
+`board.BACKLIGHT`. A property with several appends the index, so the second is
+`board.KSI0` and `board.KSI1` -- which keeps a wide keyboard matrix from needing
+one property per pin. Only the controller and pin are read; how a pin is driven
+is up to the Python code.
+
+[zuser]: https://docs.zephyrproject.org/latest/build/dts/zephyr-user-node.html
+
+## Framework Daisy
+
+The Daisy keyboard and its dongle are nRF54LM20A boards whose Zephyr
+definitions live in a separate module, [framework-daisy-zephyr][daisy], which
+`zephyr-config/west.yml` pulls in -- so `west update` is all the setup there is:
+
+```sh
+make BOARD=framework_daisy_kb_dvt1
+make BOARD=framework_daisy_dongle_dvt1
+```
+
+Unlike the other boards here these two build MCUboot as well, which their
+`sysbuild.conf` opts into. Daisy ships with MCUboot in RRAM and the application
+is linked into its slot, so an unsigned image would not boot. Two artifacts come
+out of a build:
+
+- `build-<board>/firmware.signed.bin`, which installs over the bootloader
+  already on the hardware -- hold the pairing button (keyboard) or the button
+  (dongle) at reset to reach its USB serial recovery. No debugger needed.
+- `build-<board>/firmware.merged.hex`, bootloader and application together, for
+  `make BOARD=... flash` over SWD.
+
+The CIRCUITPY drive is 612 KB taken out of the application slot, because Daisy's
+flash layout -- fixed by the bootloader already on shipping hardware -- otherwise
+fills RRAM exactly. Reinstalling firmware over serial recovery therefore erases
+the drive: MCUboot erases the slot as *it* understands it, which is the full
+1828 KB. The reasoning and the numbers are in
+`boards/framework/daisy_kb_dvt1/board.overlay`.
+
+This port has no `pwmio` yet, so the keyboard overlay disables the PWM instances
+and hands their pins back to `digitalio`: `board.WHITE_LED_1` through `_4`,
+`board.RED_LED` / `GREEN_LED` / `BLUE_LED` and `board.BACKLIGHT`. The key matrix
+is `board.KSI0`-`KSI7` and `board.KSO0`-`KSO17`; it is col2row and has no diodes,
+so three keys at the corners of a rectangle read as a fourth and scanning it in
+Python needs the same deghosting ZMK does. Of the three I2C buses `board.I2C` is
+the pin header, `board.TP_I2C` the touchpad -- already powered, the board brings
+its rail up at boot -- and `board.NPMC_I2C` the nPM1300, which is also the PMIC
+supplying the rail the SoC runs on.
+
+[daisy]: https://github.com/FrameworkComputer/framework-daisy-zephyr
+
 ## Testing other boards
 
 [Any Zephyr board](https://docs.zephyrproject.org/latest/boards/index.html#) can

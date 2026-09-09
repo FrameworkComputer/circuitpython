@@ -1,0 +1,131 @@
+// Framework Daisy keyboard, DVT1.
+//
+// The Zephyr board itself lives in the framework-daisy-zephyr module (a west
+// project, see zephyr-config/west.yml), so everything here is a delta on top of
+// it: what CircuitPython needs and the product firmware does not.
+
+// USB CDC console and data plus the HID device. Daisy's USBHS is already
+// enabled and labeled zephyr_udc0 by the board.
+#include "../../../app.overlay"
+
+// Daisy's RRAM is fully spoken for by daisy_partitions.dtsi -- 96K mcuboot,
+// 1828K image-0, 16K storage, exactly the 1940K there is -- so a CIRCUITPY
+// drive has to come out of the application slot. mcuboot's offset and the
+// storage partition (Bluetooth bond keys) stay exactly where the bootloader
+// already on the hardware expects them; only image-0 shrinks.
+//
+// If a build ever outgrows 1216K the linker says so, and the fix is to move
+// this boundary and the circuitpy offset below by the same amount.
+//
+// Reinstalling firmware over MCUboot's serial recovery erases image-0 as *it*
+// understands it, the full 1828K, so a recovery flash takes CIRCUITPY with it.
+&slot0_partition {
+	reg = <0x18000 DT_SIZE_K(1216)>;
+};
+
+&cpuapp_rram {
+	partitions {
+		circuitpy_partition: partition@148000 {
+			label = "circuitpy";
+			reg = <0x148000 DT_SIZE_K(612)>;
+		};
+	};
+};
+
+// Bus names. Every enabled I2C controller reaches Python as board.I2C2x
+// whatever we do here; these labels are what make the names say which bus is
+// which, and zephyr_i2c is the label that additionally designates one of the
+// three as plain board.I2C.
+//
+// The header is the bus a user can physically reach, so it gets board.I2C.
+zephyr_i2c: &i2c23 {
+	status = "okay";
+};
+
+// Touchpad, behind the tp_power rail the board brings up at boot.
+tp_i2c: &i2c22 {
+	status = "okay";
+};
+
+// The nPM1300. Exposed for reading charge state; writing to it controls the
+// rails the SoC itself runs on.
+npmc_i2c: &i2c21 {
+	status = "okay";
+};
+
+// This port has no pwmio, and an enabled PWM instance takes its pins away from
+// digitalio through pinctrl. Give the four white pairing LEDs, the status RGB
+// and the backlight back to CircuitPython as plain GPIO -- board.WHITE_LED_1
+// through _4, board.RED_LED / GREEN_LED / BLUE_LED, and board.BACKLIGHT.
+&pairing_leds {
+	status = "disabled";
+};
+
+&rgb_pwmleds {
+	status = "disabled";
+};
+
+&backlight_pwms {
+	status = "disabled";
+};
+
+&pwm20 {
+	status = "disabled";
+};
+
+&pwm21 {
+	status = "disabled";
+};
+
+&pwm22 {
+	status = "disabled";
+};
+
+/ {
+	zephyr,user {
+		// Pins no driver owns still deserve a name in `board`. The key
+		// matrix is not part of the Zephyr board at all -- ZMK describes
+		// it in its own shield -- so it is named here, giving
+		// board.KSI0..KSI7 and board.KSO0..KSO17. Taken from
+		// framework-daisy-zmk's daisy_kb_dvt1_nrf54lm20a_cpuapp_zmk.dts.
+		//
+		// The matrix is col2row and has no diodes, so three keys at the
+		// corners of a rectangle read as a fourth. KSO1 and KSO2 are on
+		// pins that power up as NFC; the board's UICR already releases
+		// them.
+		//
+		// Only the controller and pin are read here. How a pin is driven
+		// is up to the Python code, so the flags are written as the
+		// board's defaults rather than as the matrix scan needs them.
+		ksi-gpios = <&gpio0 0 GPIO_ACTIVE_HIGH>,
+			<&gpio0 1 GPIO_ACTIVE_HIGH>,
+			<&gpio0 2 GPIO_ACTIVE_HIGH>,
+			<&gpio0 3 GPIO_ACTIVE_HIGH>,
+			<&gpio0 4 GPIO_ACTIVE_HIGH>,
+			<&gpio0 5 GPIO_ACTIVE_HIGH>,
+			<&gpio0 6 GPIO_ACTIVE_HIGH>,
+			<&gpio0 7 GPIO_ACTIVE_HIGH>;
+
+		kso-gpios = <&gpio1 0 GPIO_ACTIVE_HIGH>,
+			<&gpio1 1 GPIO_ACTIVE_HIGH>,
+			<&gpio1 18 GPIO_ACTIVE_HIGH>,
+			<&gpio1 19 GPIO_ACTIVE_HIGH>,
+			<&gpio1 4 GPIO_ACTIVE_HIGH>,
+			<&gpio1 5 GPIO_ACTIVE_HIGH>,
+			<&gpio1 6 GPIO_ACTIVE_HIGH>,
+			<&gpio1 7 GPIO_ACTIVE_HIGH>,
+			<&gpio1 8 GPIO_ACTIVE_HIGH>,
+			<&gpio1 9 GPIO_ACTIVE_HIGH>,
+			<&gpio1 10 GPIO_ACTIVE_HIGH>,
+			<&gpio1 11 GPIO_ACTIVE_HIGH>,
+			<&gpio1 12 GPIO_ACTIVE_HIGH>,
+			<&gpio1 13 GPIO_ACTIVE_HIGH>,
+			<&gpio1 14 GPIO_ACTIVE_HIGH>,
+			<&gpio1 15 GPIO_ACTIVE_HIGH>,
+			<&gpio1 16 GPIO_ACTIVE_HIGH>,
+			<&gpio1 17 GPIO_ACTIVE_HIGH>;
+
+		// Keyboard backlight, freed from pwm22 above.
+		backlight-gpios = <&gpio3 11 GPIO_ACTIVE_HIGH>;
+	};
+};

@@ -44,6 +44,17 @@ ifneq ($(CP_BOARD_CONF),)
 WEST_CMAKE_ARGS += -Dzephyr-cp_EXTRA_CONF_FILE=$(CP_BOARD_CONF)
 endif
 
+# Anything that is a property of the whole build rather than of the application
+# image - whether MCUboot is built, and how - belongs to sysbuild, which reads
+# it from a sysbuild.conf next to the *application*. A board's own therefore has
+# to be named explicitly, the same reason board.overlay and board.conf are
+# above. SB_EXTRA_CONF_FILE and not SB_CONF_FILE, so the port's own sysbuild.conf
+# still applies.
+CP_BOARD_SYSBUILD_CONF := $(wildcard $(CP_BOARD_DIR)/sysbuild.conf)
+ifneq ($(CP_BOARD_SYSBUILD_CONF),)
+WEST_CMAKE_ARGS += -DSB_EXTRA_CONF_FILE=$(CP_BOARD_SYSBUILD_CONF)
+endif
+
 .PHONY: $(BUILD)/zephyr-cp/zephyr/zephyr.elf flash recover debug debug-jlink debugserver attach run run-sim clean menuconfig all clean-all sim clean-sim test fetch-port-submodules
 
 export BSIM_COMPONENTS_PATH := $(CURDIR)/tools/bsim/components
@@ -65,6 +76,17 @@ $(BUILD)/firmware.exe: $(BUILD)/zephyr-cp/zephyr/zephyr.elf
 
 $(BUILD)/firmware.uf2: $(BUILD)/zephyr-cp/zephyr/zephyr.elf
 	cp $(BUILD)/zephyr-cp/zephyr/zephyr.uf2 $@
+
+# Both of these exist only when the board's sysbuild.conf enables MCUboot.
+# The signed image is what a bootloader already on the hardware accepts.
+$(BUILD)/firmware.signed.bin: $(BUILD)/zephyr-cp/zephyr/zephyr.elf
+	cp $(BUILD)/zephyr-cp/zephyr/zephyr.signed.bin $@
+
+# Bootloader and signed application in one hex, for flashing over SWD. Sysbuild
+# names it after the resolved Zephyr board, which the CircuitPython board alias
+# doesn't spell, so let the shell find it.
+$(BUILD)/firmware.merged.hex: $(BUILD)/zephyr-cp/zephyr/zephyr.elf
+	cp $(BUILD)/merged_*.hex $@
 
 $(BUILD)/firmware.rps: $(BUILD)/zephyr-cp/zephyr/zephyr.elf
 	cp $(BUILD)/zephyr-cp/zephyr/zephyr.rps $@

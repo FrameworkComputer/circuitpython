@@ -1,0 +1,30 @@
+// Framework Daisy USB dongle, DVT1.
+//
+// The Zephyr board itself lives in the framework-daisy-zephyr module (a west
+// project, see zephyr-config/west.yml), so everything here is a delta on top of
+// it: what CircuitPython needs and the product firmware does not.
+
+// USB CDC console and data plus the HID device. The dongle's USBHS is already
+// enabled and labeled zephyr_udc0 by the board -- and USB is the whole point of
+// this board, since the only other way in is the debug UART on P2.00/P2.02.
+#include "../../../app.overlay"
+
+// Same reasoning, and the same layout, as the keyboard: daisy_partitions.dtsi
+// fills the 1940K of RRAM exactly, so a CIRCUITPY drive comes out of the
+// application slot. mcuboot's offset and the storage partition keep the
+// addresses the bootloader on the hardware was built for; only image-0 shrinks.
+//
+// Reinstalling firmware over MCUboot's serial recovery erases image-0 as *it*
+// understands it, the full 1828K, so a recovery flash takes CIRCUITPY with it.
+&slot0_partition {
+	reg = <0x18000 DT_SIZE_K(1216)>;
+};
+
+&cpuapp_rram {
+	partitions {
+		circuitpy_partition: partition@148000 {
+			label = "circuitpy";
+			reg = <0x148000 DT_SIZE_K(612)>;
+		};
+	};
+};
