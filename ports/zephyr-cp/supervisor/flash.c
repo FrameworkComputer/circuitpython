@@ -224,11 +224,23 @@ void supervisor_flash_init(void) {
     const struct flash_parameters *fp = flash_get_parameters(d);
     _erase_value = fp->erase_value;
     flash_get_page_info_by_offs(d, filesystem_area->fa_off, &first_info);
-    struct flash_pages_info last_info;
-    flash_get_page_info_by_offs(d, filesystem_area->fa_off + filesystem_area->fa_size - FILESYSTEM_BLOCK_SIZE, &last_info);
     _page_size = first_info.size;
+    #if DT_HAS_COMPAT_STATUS_OKAY(nuvoton_npcx_fiu_nor)
+    // The NPCX FIU NOR driver reports its 256-byte program page as the page
+    // layout but erases only whole 4 KiB sectors (-EINVAL otherwise).
+    #define CP_IS_NPCX_NOR(node) || d == DEVICE_DT_GET(node)
+    if (false DT_FOREACH_STATUS_OKAY(nuvoton_npcx_fiu_nor, CP_IS_NPCX_NOR)) {
+        _page_size = MAX(_page_size, 4096);
+    }
+    #undef CP_IS_NPCX_NOR
+    #endif
     if (_page_size < FILESYSTEM_BLOCK_SIZE) {
         _page_size = FILESYSTEM_BLOCK_SIZE;
+    }
+    if (filesystem_area->fa_off % _page_size != 0 || filesystem_area->fa_size % _page_size != 0) {
+        printk("filesystem area not aligned to erase page %d\n", _page_size);
+        filesystem_area = NULL;
+        return;
     }
     _blocks_per_page = _page_size / FILESYSTEM_BLOCK_SIZE;
     _page_mask = ~(_page_size - 1);
@@ -243,8 +255,9 @@ void supervisor_flash_init(void) {
     }
     memset(_row_flags, 0, _blocks_per_page);
 
-    // The last page is the scratch sector.
-    _scratch_page_address = last_info.start_offset - filesystem_area->fa_off;
+    // The last erase page is the scratch sector. Use the erase page size, not
+    // the layout's page start, which can be a smaller program page.
+    _scratch_page_address = filesystem_area->fa_size - _page_size;
     _current_page_address = NO_PAGE_LOADED;
 }
 
