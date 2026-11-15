@@ -1,9 +1,12 @@
 # Lilac AP-off diagnostic candidate
 
-Booted once on Lilac hardware (2026-11-15, adapter only, no battery, AP off):
-UART REPL reached, 28/28 pins configured, inputs matched the stock G3 state.
-No rail, current or temperature measurement was taken; not validated beyond
-that.
+Run on Lilac hardware (2026-11-15, adapter only, no battery, AP off), through
+`dd6e647430`: UART REPL, 28/28 pins configured, inputs match the stock G3
+state, charger reads and the one masked write work, littlefs storage formats
+and persists, 10 GC/exception/Ctrl-C/Ctrl-D reload cycles and a 20-minute soak
+were clean. The F75303 sensor bus is not idle in G3. No rail, current or
+temperature measurement was taken with instruments; not validated beyond that.
+Evidence and the bring-up plan live outside this repository.
 
 `make BOARD=framework_lilac_diag` builds a separate NPCX993 target. Native
 main configures stock-intent output levels before CircuitPython, and native
@@ -16,7 +19,7 @@ the level read back on each configured pad in table order (with a count of
 pads driven low that do not read low) and the 3V/5V power-good, VR power-good,
 SLP_S3 and SLP_S5 inputs. These are read-only observations, not protection.
 
-Second image (read-only visibility, not yet run on hardware): the `lilac`
+Read-only visibility (since `141b873a06`): the `lilac`
 Python module exposes `inputs()`/`input(name)` for 21 named inputs (configured
 with their stock flags: input, no pulls, 1.8 V detection on `ec_espi_rst_l`),
 and `charger_read(reg)` / `thermal_read(reg)` for fixed register allowlists of
