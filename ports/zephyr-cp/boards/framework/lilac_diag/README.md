@@ -22,7 +22,10 @@ with their stock flags: input, no pulls, 1.8 V detection on `ec_espi_rst_l`),
 and `charger_read(reg)` / `thermal_read(reg)` for fixed register allowlists of
 the ISL9241 charger (I2C3, 0x09, SMBus word) and F75303 thermal sensor (I2C7,
 0x4D, byte). Registers outside the allowlist raise `ValueError` before any bus
-access. There are no write paths. `BOARD_BUS_OBJECTS = false` keeps the
+access. The only write path is `charger_update(reg, mask, value)`, limited to
+the bits listed by `charger_writable()` — currently ISL9241 CONTROL3 (0x4C)
+bit 0, ADC always on. It is a read-modify-write like the stock driver's
+`isl9241_update()`, skipped if nothing changes, and verified by read-back. `BOARD_BUS_OBJECTS = false` keeps the
 generated `board` module from exposing `busio.I2C` objects for these buses.
 Native code also runs a battery-LED heartbeat (green PWM at the stock 16 %
 level, 100 ms every 2 s); for that, the `left_side`/`right_side` LED selects

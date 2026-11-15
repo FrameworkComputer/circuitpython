@@ -195,6 +195,59 @@ int lilac_charger_read(uint8_t reg, uint16_t *value) {
     return 0;
 }
 
+// The only charger write path: read-modify-write of allowlisted bits, as the
+// stock driver's isl9241_update(). CONTROL3 bit 0 keeps the ADC running when
+// not charging (stock sets it around each VIN/VSYS read).
+static const struct lilac_writable charger_writable[] = {
+    { 0x4c, 0x0001 }, // CONTROL3 ENABLE_ADC
+};
+
+const struct lilac_writable *lilac_charger_writable(size_t *count) {
+    *count = ARRAY_SIZE(charger_writable);
+    return charger_writable;
+}
+
+int lilac_charger_update(uint8_t reg, uint16_t mask, uint16_t value, uint16_t *result) {
+    bool allowed = false;
+    for (size_t i = 0; i < ARRAY_SIZE(charger_writable); i++) {
+        if (charger_writable[i].reg == reg && mask != 0 &&
+            (mask & ~charger_writable[i].mask) == 0) {
+            allowed = true;
+        }
+    }
+    if (!allowed) {
+        return -EPERM;
+    }
+    if (value & ~mask) {
+        return -EINVAL;
+    }
+    uint16_t current;
+    int ret = lilac_charger_read(reg, &current);
+    if (ret != 0) {
+        return ret;
+    }
+    uint16_t next = (uint16_t)((current & ~mask) | value);
+    if (next != current) {
+        uint8_t buf[3] = { reg, (uint8_t)(next & 0xff), (uint8_t)(next >> 8) };
+        ret = i2c_write_dt(&charger, buf, sizeof(buf));
+        if (ret != 0) {
+            LOG_WRN("charger write 0x%02x failed: %d", reg, ret);
+            return ret;
+        }
+        LOG_INF("charger 0x%02x: 0x%04x -> 0x%04x", reg, current, next);
+    }
+    ret = lilac_charger_read(reg, &current);
+    if (ret != 0) {
+        return ret;
+    }
+    *result = current;
+    if ((current & mask) != value) {
+        LOG_WRN("charger 0x%02x readback 0x%04x, expected bits 0x%04x", reg, current, value);
+        return -EIO;
+    }
+    return 0;
+}
+
 int lilac_thermal_read(uint8_t reg, uint8_t *value) {
     if (!reg_allowed(thermal_regs, ARRAY_SIZE(thermal_regs), reg)) {
         return -EPERM;
