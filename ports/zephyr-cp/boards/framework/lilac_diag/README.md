@@ -64,9 +64,19 @@ ACPI EC framing for the generic addresses with SCI on GPIO `ec_sci_l`;
 Port 80 buffered for `lilac.port80()`. 8042 bytes are consumed and counted,
 no keyboard controller. `lilac.espi_status()` reports state and counters.
 
+AP power control (`9a56f57fa8`, built, not run on hardware): `powerctl.c`
+holds stock power_sequence.c's ordering as interlocks (each output only
+after its predecessor, stock delay and power good; SYS_PWRGD only after VR
+power good), follows SLP_S3/SLP_S5 down natively with stock delays, and
+switches every output off in force_g3 order, latched, on 3VALW loss, VR
+power-good timeout or loss, thermal halt, eSPI hang, a 1 s Python lease
+expiry or a reload. `power.c` runs it from a 1 ms kernel timer;
+`lilac.power_*` is the Python side. **Disarmed** (`LILAC_POWER_ARMED` 0):
+every assertion is refused, so this build cannot enable any rail.
+
 Raw GPIO/NVM modules and busio registration are excluded; UART internals remain
-compiled for the native console. The board module contains inert pin names. No AP sequencing, charger policy, PD,
-keyboard controller, watchdog or emergency shutdown services are implemented; cooling is unverified on hardware. Do not power the AP.
+compiled for the native console. The board module contains inert pin names. No armed AP sequencing, charger policy, PD,
+keyboard controller or watchdog services are implemented; cooling is unverified on hardware. Do not power the AP.
 
 Pin source: ec-lilac 6bcd05acb6c11cc2a2e247118b9e741bf7e6d1f0,
 zephyr/program/framework/lilac/gpio.dtsi. All stock output defaults are
