@@ -36,7 +36,7 @@ static const struct device *const sci_port = DEVICE_DT_GET(DT_NODELABEL(gpio7));
 #define EC_LPC_STATUS_PROCESSING 0x04
 #define EC_LPC_STATUS_BURST_MODE 0x10
 #define EC_COMMAND_PROTOCOL_3 0xda
-#define EC_MEMMAP_HOST_CMD_FLAGS 0x27
+#define EC_MEMMAP_HOST_CMD_FLAGS HOSTIF_MEMMAP_HOST_CMD_FLAGS
 #define EC_HOST_CMD_FLAG_LPC_ARGS_SUPPORTED 0x01
 #define EC_HOST_CMD_FLAG_VERSION_3 0x02
 #define ACPI_MEMMAP_OFFSET 0x20  // ACPI addresses 0x20.. map to memmap[0..]
@@ -278,6 +278,39 @@ SYS_INIT(lilac_espi_init, APPLICATION, 0);
 
 bool lilac_espi_vw_ready(void) {
     return vw_ready;
+}
+
+int lilac_memmap_read(size_t offset, uint8_t *out, size_t len) {
+    int ret = hostif_memmap_check(offset, len, LILAC_MEMMAP_SIZE, false);
+    if (ret) {
+        return ret;
+    }
+    k_spinlock_key_t key = k_spin_lock(&lock);
+    if (memmap == NULL) {
+        k_spin_unlock(&lock, key);
+        return -ENODEV;
+    }
+    memcpy(out, memmap + offset, len);
+    k_spin_unlock(&lock, key);
+    return 0;
+}
+
+int lilac_memmap_update(size_t offset, const uint8_t *data, size_t len, uint8_t mask) {
+    int ret = hostif_memmap_check(offset, len, LILAC_MEMMAP_SIZE, true);
+    if (ret) {
+        return ret;
+    }
+    k_spinlock_key_t key = k_spin_lock(&lock);
+    if (memmap == NULL) {
+        k_spin_unlock(&lock, key);
+        return -ENODEV;
+    }
+    for (size_t i = 0; i < len; i++) {
+        uint8_t *b = &memmap[offset + i];
+        *b = (uint8_t)((*b & ~mask) | (data[i] & mask));
+    }
+    k_spin_unlock(&lock, key);
+    return 0;
 }
 
 void lilac_espi_status(struct lilac_espi_status *st) {

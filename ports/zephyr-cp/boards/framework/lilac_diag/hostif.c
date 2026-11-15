@@ -1,4 +1,5 @@
 // Host-interface protocol logic; see hostif.h. No Zephyr dependencies.
+#include <errno.h>
 #include <string.h>
 
 #include "hostif.h"
@@ -223,4 +224,14 @@ size_t hostif_port80_drain(struct hostif_port80 *p, uint32_t *out, size_t max) {
         p->count--;
     }
     return n;
+}
+
+int hostif_memmap_check(size_t offset, size_t len, size_t size, bool write) {
+    if (offset > size || len > size - offset) {
+        return -EINVAL;
+    }
+    if (write && offset <= HOSTIF_MEMMAP_HOST_CMD_FLAGS && HOSTIF_MEMMAP_HOST_CMD_FLAGS - offset < len) {
+        return -EPERM;
+    }
+    return 0;
 }

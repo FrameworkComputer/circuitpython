@@ -84,6 +84,19 @@
     };
 };
 
+// ADC, as stock laptop13/adc.dtsi (= release azalea/adc.dtsi): six channels
+// on their stock pads. Native adc.c reads them; read-only.
+&adc0 {
+    status = "okay";
+    pinctrl-0 = <&adc0_chan0_gp45
+                 &adc0_chan4_gp41
+                 &adc0_chan5_gp37
+                 &adc0_chan7_gpe1
+                 &adc0_chan8_gpf1
+                 &adc0_chan9_gpf0>;
+    pinctrl-names = "default";
+};
+
 // Host interface, as stock lilac/gpio.dtsi. Native espi.c owns it.
 &espi0 {
     status = "okay";

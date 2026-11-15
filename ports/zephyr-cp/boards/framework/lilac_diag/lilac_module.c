@@ -83,15 +83,20 @@ static mp_obj_t lilac_charger_read_fn(mp_obj_t reg_in) {
 }
 static MP_DEFINE_CONST_FUN_OBJ_1(lilac_charger_read_obj, lilac_charger_read_fn);
 
-//| def charger_writable() -> tuple[tuple[int, int], ...]:
-//|     """(register, bit mask) pairs that charger_update() may change."""
+//| def charger_writable() -> tuple[tuple[int, int, int, int], ...]:
+//|     """(register, bit mask, min, max) entries that charger_update() may
+//|     change. Unless min is 0 and max equals the mask, the whole mask must be
+//|     written with a value in [min, max] (else OSError ERANGE)."""
 static mp_obj_t lilac_charger_writable_fn(void) {
     size_t count;
     const struct lilac_writable *w = lilac_charger_writable(&count);
     mp_obj_t items[count];
     for (size_t i = 0; i < count; i++) {
-        mp_obj_t pair[2] = { MP_OBJ_NEW_SMALL_INT(w[i].reg), MP_OBJ_NEW_SMALL_INT(w[i].mask) };
-        items[i] = mp_obj_new_tuple(2, pair);
+        mp_obj_t entry[4] = {
+            MP_OBJ_NEW_SMALL_INT(w[i].reg), MP_OBJ_NEW_SMALL_INT(w[i].mask),
+            MP_OBJ_NEW_SMALL_INT(w[i].min), MP_OBJ_NEW_SMALL_INT(w[i].max),
+        };
+        items[i] = mp_obj_new_tuple(4, entry);
     }
     return mp_obj_new_tuple(count, items);
 }
@@ -293,6 +298,80 @@ static mp_obj_t lilac_hc_respond_fn(size_t n_args, const mp_obj_t *args) {
 }
 static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lilac_hc_respond_obj, 2, 3, lilac_hc_respond_fn);
 
+//| def adc_channels() -> tuple[str, ...]:
+//|     """Names of the ADC channels adc_read() accepts (stock channels)."""
+static mp_obj_t lilac_adc_channels_fn(void) {
+    size_t count;
+    const struct lilac_adc_channel *ch = lilac_adc_channels(&count);
+    mp_obj_t items[count];
+    for (size_t i = 0; i < count; i++) {
+        items[i] = mp_obj_new_str(ch[i].name, strlen(ch[i].name));
+    }
+    return mp_obj_new_tuple(count, items);
+}
+static MP_DEFINE_CONST_FUN_OBJ_0(lilac_adc_channels_obj, lilac_adc_channels_fn);
+
+//| def adc_read(name: str) -> int:
+//|     """One conversion of a named ADC channel, in millivolts."""
+static mp_obj_t lilac_adc_read_fn(mp_obj_t name_in) {
+    const char *name = mp_obj_str_get_str(name_in);
+    size_t count;
+    const struct lilac_adc_channel *ch = lilac_adc_channels(&count);
+    for (size_t i = 0; i < count; i++) {
+        if (strcmp(name, ch[i].name) == 0) {
+            int32_t mv;
+            int ret = lilac_adc_read(i, &mv);
+            if (ret < 0) {
+                mp_raise_OSError(-ret);
+            }
+            return mp_obj_new_int(mv);
+        }
+    }
+    mp_raise_ValueError(MP_ERROR_TEXT("unknown ADC channel"));
+}
+static MP_DEFINE_CONST_FUN_OBJ_1(lilac_adc_read_obj, lilac_adc_read_fn);
+
+static size_t memmap_range(mp_obj_t offset_in, mp_int_t len) {
+    mp_int_t offset = mp_obj_get_int(offset_in);
+    if (offset < 0 || len < 0 || offset > LILAC_MEMMAP_SIZE || len > LILAC_MEMMAP_SIZE - offset) {
+        mp_raise_ValueError(MP_ERROR_TEXT("outside memmap"));
+    }
+    return (size_t)offset;
+}
+
+//| def memmap_read(offset: int, length: int) -> bytes:
+//|     """Bytes of the 512-byte host shared memory window (ACPI SHM 0xe00)."""
+static mp_obj_t lilac_memmap_read_fn(mp_obj_t offset_in, mp_obj_t len_in) {
+    mp_int_t len = mp_obj_get_int(len_in);
+    size_t offset = memmap_range(offset_in, len);
+    uint8_t buf[LILAC_MEMMAP_SIZE];
+    int ret = lilac_memmap_read(offset, buf, (size_t)len);
+    if (ret < 0) {
+        mp_raise_OSError(-ret);
+    }
+    return mp_obj_new_bytes(buf, (size_t)len);
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(lilac_memmap_read_obj, lilac_memmap_read_fn);
+
+//| def memmap_write(offset: int, data: bytes, mask: int = 0xff) -> None:
+//|     """Set the `mask` bits of each byte from `data`. Native-owned bytes
+//|     (host-command flags at 0x27) raise OSError EPERM, nothing written."""
+static mp_obj_t lilac_memmap_write_fn(size_t n_args, const mp_obj_t *args) {
+    mp_buffer_info_t buf;
+    mp_get_buffer_raise(args[1], &buf, MP_BUFFER_READ);
+    size_t offset = memmap_range(args[0], (mp_int_t)buf.len);
+    mp_int_t mask = n_args > 2 ? mp_obj_get_int(args[2]) : 0xff;
+    if (mask < 0 || mask > 0xff) {
+        mp_raise_ValueError(MP_ERROR_TEXT("mask outside 0..0xff"));
+    }
+    int ret = lilac_memmap_update(offset, buf.buf, buf.len, (uint8_t)mask);
+    if (ret < 0) {
+        mp_raise_OSError(-ret);
+    }
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lilac_memmap_write_obj, 2, 3, lilac_memmap_write_fn);
+
 // Power calls report every refusal as OSError(errno); EPERM means disarmed.
 static void power_check(int ret) {
     if (ret < 0) {
@@ -400,6 +479,10 @@ static const mp_rom_map_elem_t lilac_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_power_off), MP_ROM_PTR(&lilac_power_off_obj) },
     { MP_ROM_QSTR(MP_QSTR_power_clear_fault), MP_ROM_PTR(&lilac_power_clear_fault_obj) },
     { MP_ROM_QSTR(MP_QSTR_power_status), MP_ROM_PTR(&lilac_power_status_obj) },
+    { MP_ROM_QSTR(MP_QSTR_adc_channels), MP_ROM_PTR(&lilac_adc_channels_obj) },
+    { MP_ROM_QSTR(MP_QSTR_adc_read), MP_ROM_PTR(&lilac_adc_read_obj) },
+    { MP_ROM_QSTR(MP_QSTR_memmap_read), MP_ROM_PTR(&lilac_memmap_read_obj) },
+    { MP_ROM_QSTR(MP_QSTR_memmap_write), MP_ROM_PTR(&lilac_memmap_write_obj) },
 };
 static MP_DEFINE_CONST_DICT(lilac_module_globals, lilac_module_globals_table);
 

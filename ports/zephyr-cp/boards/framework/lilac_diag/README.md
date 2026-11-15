@@ -71,12 +71,24 @@ power good), follows SLP_S3/SLP_S5 down natively with stock delays, and
 switches every output off in force_g3 order, latched, on 3VALW loss, VR
 power-good timeout or loss, thermal halt, eSPI hang, a 1 s Python lease
 expiry or a reload. `power.c` runs it from a 1 ms kernel timer;
-`lilac.power_*` is the Python side. **Disarmed** (`LILAC_POWER_ARMED` 0):
-every assertion is refused, so this build cannot enable any rail.
+`lilac.power_*` is the Python side. Images up to 8 were **disarmed**.
+
+Image 9 (2026-11-15, not yet flashed when written): **armed**
+(`LILAC_POWER_ARMED` 1, the header default; user decision with EC-telemetry-only
+measurement, gate D/E option A in the playground plan). Assertions follow the
+interlocks above. Also: the ISL9241 adapter current limits (0x3f, 0x3b) join
+the charger write allowlist as whole fields bounded natively to 500..3000 mA
+(ERANGE otherwise; the bring-up ceiling); the six stock ADC channels on their
+stock pads, read-only, `lilac.adc_channels()/adc_read(name)` in mV (gain 1,
+internal 2816 mV reference, 10 bit, as the stock shim); the 512-byte host
+shared-memory window readable and masked-writable from Python
+(`lilac.memmap_read/memmap_write`) except the native host-command flags byte
+0x27 (EPERM; check in pure `hostif.c`).
 
 Raw GPIO/NVM modules and busio registration are excluded; UART internals remain
-compiled for the native console. The board module contains inert pin names. No armed AP sequencing, charger policy, PD,
-keyboard controller or watchdog services are implemented; cooling is unverified on hardware. Do not power the AP.
+compiled for the native console. The board module contains inert pin names. No charger policy, PD,
+keyboard controller, PROCHOT or watchdog services are implemented; cooling is verified only by the
+native fan floor in G3. Powering the AP is limited to bounded, supervised bring-up runs.
 
 Pin source: ec-lilac 6bcd05acb6c11cc2a2e247118b9e741bf7e6d1f0,
 zephyr/program/framework/lilac/gpio.dtsi. All stock output defaults are

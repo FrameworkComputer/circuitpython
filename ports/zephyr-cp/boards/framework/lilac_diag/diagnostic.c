@@ -198,10 +198,17 @@ int lilac_charger_read(uint8_t reg, uint16_t *value) {
 }
 
 // The only charger write path: read-modify-write of allowlisted bits, as the
-// stock driver's isl9241_update(). CONTROL3 bit 0 keeps the ADC running when
-// not charging (stock sets it around each VIN/VSYS read).
+// stock driver's isl9241_update(), with the masked value bounded natively.
+// CONTROL3 bit 0 keeps the ADC running when not charging (stock sets it
+// around each VIN/VSYS read). Image 9: the adapter (input) current limits,
+// which stock writes together in isl9241_set_input_current_limit(); with the
+// stock 20 mOhm input sense resistor the register value is mA (bits 12:2).
+// Bring-up ceiling 3000 mA (user decision 2026-11-15; stock sets ~4748 mA
+// from the PD contract), floor 500 mA (stock default input limit).
 static const struct lilac_writable charger_writable[] = {
-    { 0x4c, 0x0001 }, // CONTROL3 ENABLE_ADC
+    { 0x4c, 0x0001, 0, 0x0001 },      // CONTROL3 ENABLE_ADC
+    { 0x3f, 0x1ffc, 500, 3000 },      // ADAPTER_CUR_LIMIT1, mA
+    { 0x3b, 0x1ffc, 500, 3000 },      // ADAPTER_CUR_LIMIT2, mA
 };
 
 const struct lilac_writable *lilac_charger_writable(size_t *count) {
@@ -210,18 +217,24 @@ const struct lilac_writable *lilac_charger_writable(size_t *count) {
 }
 
 int lilac_charger_update(uint8_t reg, uint16_t mask, uint16_t value, uint16_t *result) {
-    bool allowed = false;
+    const struct lilac_writable *w = NULL;
     for (size_t i = 0; i < ARRAY_SIZE(charger_writable); i++) {
         if (charger_writable[i].reg == reg && mask != 0 &&
             (mask & ~charger_writable[i].mask) == 0) {
-            allowed = true;
+            w = &charger_writable[i];
         }
     }
-    if (!allowed) {
+    if (w == NULL) {
         return -EPERM;
     }
     if (value & ~mask) {
         return -EINVAL;
+    }
+    // Bounds apply to the whole field: a partial mask could otherwise build
+    // an out-of-range value from the bits it leaves alone.
+    bool ranged = !(w->min == 0 && w->max == w->mask);
+    if (ranged && (mask != w->mask || value < w->min || value > w->max)) {
+        return -ERANGE;
     }
     uint16_t current;
     int ret = lilac_charger_read(reg, &current);

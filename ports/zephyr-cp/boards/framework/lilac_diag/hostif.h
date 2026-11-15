@@ -105,3 +105,9 @@ struct hostif_port80 {
 void hostif_port80_push(struct hostif_port80 *p, uint32_t code);
 // Moves up to max codes into out; returns how many.
 size_t hostif_port80_drain(struct hostif_port80 *p, uint32_t *out, size_t max);
+
+// Shared memory (ACPI SHM) access check for Python (image 9): 0, -EINVAL if
+// [offset, offset + len) leaves the `size`-byte window, -EPERM for a write
+// touching a native-owned byte (EC_MEMMAP_HOST_CMD_FLAGS, 0x27).
+#define HOSTIF_MEMMAP_HOST_CMD_FLAGS 0x27
+int hostif_memmap_check(size_t offset, size_t len, size_t size, bool write);

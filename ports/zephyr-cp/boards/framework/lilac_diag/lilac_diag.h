@@ -19,12 +19,15 @@ const uint8_t *lilac_thermal_registers(size_t *count);
 int lilac_charger_read(uint8_t reg, uint16_t *value);
 int lilac_thermal_read(uint8_t reg, uint8_t *value);
 
-struct lilac_writable { uint8_t reg; uint16_t mask; };
-// (register, writable bit mask) pairs that lilac_charger_update() accepts.
+struct lilac_writable { uint8_t reg; uint16_t mask; uint16_t min, max; };
+// (register, writable bit mask, min, max) entries that lilac_charger_update()
+// accepts. For a ranged entry (anything but min 0 / max == mask) the whole
+// mask must be written and the masked value must lie in [min, max].
 const struct lilac_writable *lilac_charger_writable(size_t *count);
 // Read-modify-write of `mask` bits to `value`, skipped if unchanged, then read
 // back. -EPERM outside the writable list, -EINVAL for value bits outside mask,
-// -EIO if the readback does not show the requested bits. *result = readback.
+// -ERANGE outside a ranged entry's bounds (or a partial mask on it), -EIO if
+// the readback does not show the requested bits. *result = readback.
 int lilac_charger_update(uint8_t reg, uint16_t mask, uint16_t value, uint16_t *result);
 
 // Level of slp_s3_l, the stock power-good pin for the sensors and the fan
@@ -118,12 +121,29 @@ int lilac_hc_respond(uint32_t seq, uint16_t result, const uint8_t *data, size_t 
 // True while the eSPI virtual-wire channel is ready (espi.c).
 bool lilac_espi_vw_ready(void);
 
-// AP power rails (power.c, powerctl.c). This diagnostic build is disarmed:
-// every assertion is refused with -EPERM, so no rail can be enabled; the
-// protection and power-down logic still runs. Arming is a separate,
-// reviewed build change, not a runtime switch.
+// Shared memory (ACPI SHM window at 0xe00, 512 bytes; espi.c). Python may
+// read any byte and change any byte except those native code owns
+// (EC_MEMMAP_HOST_CMD_FLAGS). The host can also write parts of this window.
+#define LILAC_MEMMAP_SIZE 512
+// 0, -ENODEV before eSPI configured the window, -EINVAL outside the window.
+int lilac_memmap_read(size_t offset, uint8_t *out, size_t len);
+// Writes `mask` bits of each byte (read-modify-write under the eSPI lock).
+// -EPERM if any byte in range is native-owned (nothing written).
+int lilac_memmap_update(size_t offset, const uint8_t *data, size_t len, uint8_t mask);
+
+// ADC (adc.c, image 9): the stock channels, read-only, in millivolts.
+struct lilac_adc_channel { const char *name; uint8_t input; };
+const struct lilac_adc_channel *lilac_adc_channels(size_t *count);
+// 0 and *mv, -EINVAL for an unknown index, or the driver/setup error.
+int lilac_adc_read(size_t index, int32_t *mv);
+
+// AP power rails (power.c, powerctl.c). Image 9 is ARMED (user decision
+// 2026-11-15, gate D/E option A: EC telemetry only): assertions follow the
+// native interlocks, delays and protection. Images 8 and earlier were
+// disarmed (every assertion -EPERM). Arming is a reviewed build change, not
+// a runtime switch.
 #ifndef LILAC_POWER_ARMED
-#define LILAC_POWER_ARMED 0
+#define LILAC_POWER_ARMED 1
 #endif
 #define LILAC_POWER_OUTPUTS 11
 #define LILAC_POWER_INPUTS 4
