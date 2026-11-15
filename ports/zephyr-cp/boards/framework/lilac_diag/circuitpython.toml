@@ -4,6 +4,8 @@ CIRCUITPY_BUILD_EXTENSIONS = ["elf"]
 CIRCUITPY_ULAB = false
 CIRCUITPY_FULL_BUILD = false
 LILAC_DIAGNOSTIC = true
+# I2C buses belong to native code; Python reads them through `lilac` only.
+BOARD_BUS_OBJECTS = false
 DISABLED_MODULES = [
     "digitalio", "microcontroller", "nvm", "storage",
     "bitbangio", "zephyr_serial", "zephyr_i2c", "zephyr_spi",

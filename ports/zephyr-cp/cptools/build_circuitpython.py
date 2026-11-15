@@ -505,6 +505,9 @@ async def build_circuitpython():  # noqa: C901
     top = srcdir
     supervisor_source = [pathlib.Path(p) for p in supervisor_source]
     supervisor_source.extend(board_info["source_files"])
+    if mpconfigboard.get("LILAC_DIAGNOSTIC", False):
+        # Read-only `lilac` module; the native side is in the Zephyr app.
+        supervisor_source.append(portdir / "boards/framework/lilac_diag/lilac_module.c")
     supervisor_source.extend(top.glob("supervisor/shared/*.c"))
     ble_workflow_enabled = "_bleio" in enabled_modules
     if ble_workflow_enabled:

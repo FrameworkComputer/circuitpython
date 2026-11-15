@@ -16,6 +16,20 @@ the level read back on each configured pad in table order (with a count of
 pads driven low that do not read low) and the 3V/5V power-good, VR power-good,
 SLP_S3 and SLP_S5 inputs. These are read-only observations, not protection.
 
+Second image (read-only visibility, not yet run on hardware): the `lilac`
+Python module exposes `inputs()`/`input(name)` for 21 named inputs (configured
+with their stock flags: input, no pulls, 1.8 V detection on `ec_espi_rst_l`),
+and `charger_read(reg)` / `thermal_read(reg)` for fixed register allowlists of
+the ISL9241 charger (I2C3, 0x09, SMBus word) and F75303 thermal sensor (I2C7,
+0x4D, byte). Registers outside the allowlist raise `ValueError` before any bus
+access. There are no write paths. `BOARD_BUS_OBJECTS = false` keeps the
+generated `board` module from exposing `busio.I2C` objects for these buses.
+Native code also runs a battery-LED heartbeat (green PWM at the stock 16 %
+level, 100 ms every 2 s); for that, the `left_side`/`right_side` LED selects
+are driven high, a deliberate deviation from the stock initial low. The
+heartbeat shows the kernel work queue is alive, not Python. Zephyr minimal
+logging prints driver warnings and failed reads on the console.
+
 Filesystem initialization returns before touching flash; low-level flash
 initialization cannot discover a flash area. No FAT partition is declared.
 Raw GPIO/NVM modules and busio registration are excluded; UART internals remain

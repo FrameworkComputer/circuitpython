@@ -821,6 +821,9 @@ def zephyr_dts_to_cp_board(board_id, portdir, builddir, zephyrbuilddir, mpconfig
                 # busio driver (i2c, spi, uart)
                 board_info["busio"] = True
                 logger.info(f"Supported busio driver: {driver}")
+                if not (mpconfigboard or {}).get("BOARD_BUS_OBJECTS", True):
+                    # Buses owned by native code: no board.<BUS> objects.
+                    continue
                 if driver not in active_zephyr_devices:
                     active_zephyr_devices[driver] = []
                 active_zephyr_devices[driver].append(node.labels)

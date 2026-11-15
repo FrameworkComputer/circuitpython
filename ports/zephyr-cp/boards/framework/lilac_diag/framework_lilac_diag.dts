@@ -2,6 +2,8 @@
 
 #include <nuvoton/npcx9m3f.dtsi>
 #include <nuvoton/npcx/npcx9/npcx9-pinctrl.dtsi>
+#include <zephyr/dt-bindings/i2c/i2c.h>
+#include <zephyr/dt-bindings/pwm/pwm.h>
 
 / {
     model = "Framework Lilac AP-off diagnostic candidate";
@@ -11,6 +13,51 @@
         zephyr,sram = &sram0;
         zephyr,flash = &flash0;
         zephyr,console = &uart1;
+    };
+
+    // Green battery LED, as stock laptop13/led_pins.dtsi. Native heartbeat only.
+    lilac-leds {
+        compatible = "pwm-leds";
+        pwm_led_green: led-green {
+            pwms = <&pwm4 0 PWM_HZ(324) PWM_POLARITY_NORMAL>;
+        };
+    };
+};
+
+&pwm4 {
+    status = "okay";
+    clock-bus = "NPCX_CLOCK_BUS_LFCLK";
+    pinctrl-0 = <&pwm4_gpb6>;
+    pinctrl-names = "default";
+};
+
+// Charger/battery SMBus, as stock lilac/i2c.dtsi. Native reads only; the
+// smart battery at 0x0b is not addressed. Neutral compatible: no driver.
+&i2c_ctrl3 { status = "okay"; };
+&i2c3_0 {
+    status = "okay";
+    clock-frequency = <I2C_BITRATE_STANDARD>;
+    pinctrl-0 = <&i2c3_0_sda_scl_gpd0_d1>;
+    pinctrl-names = "default";
+
+    lilac_charger: charger@9 {
+        compatible = "vnd,i2c-device";
+        reg = <0x9>;
+    };
+};
+
+// Sensor bus, as stock. Only the F75303 is addressed; the APU SB-TSI (0x4c)
+// and ALS (0x29) are not.
+&i2c_ctrl7 { status = "okay"; };
+&i2c7_0 {
+    status = "okay";
+    clock-frequency = <I2C_BITRATE_FAST>;
+    pinctrl-0 = <&i2c7_0_sda_scl_gpb2_b3>;
+    pinctrl-names = "default";
+
+    lilac_thermal: thermal@4d {
+        compatible = "vnd,i2c-device";
+        reg = <0x4d>;
     };
 };
 
