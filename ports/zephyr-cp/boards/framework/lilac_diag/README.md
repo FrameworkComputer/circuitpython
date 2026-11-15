@@ -42,7 +42,7 @@ partition is missing, so runtime flash discovery can never pick the firmware
 region. Python writes files with `open()`/`os`; there is no USB drive, files
 are copied over the UART REPL. The first boot formats the partition. The
 console UART receive buffer is 1 KiB (`CONSOLE_UART_RX_BUFFER_SIZE`).
-Fan and thermal floor (`b5cf28695d`, built, not yet run on hardware):
+Fan and thermal floor (`b5cf28695d`, run on Lilac in G3 only, 2026-11-15):
 PWM0/GPC3 and tach TA2/GP73 as stock. A native 1 s monitor on the system
 work queue applies duty 0 while `slp_s3_l` (stock power-good pin of fan and
 sensors) is low; in S0 it applies `lilac.fan_set()`'s request, or 100 % when
