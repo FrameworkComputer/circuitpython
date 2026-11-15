@@ -38,9 +38,43 @@ static const struct lilac_pin pins[] = {
     { DEVICE_DT_GET(DT_NODELABEL(gpio5)), 0, ((GPIO_OUTPUT_LOW | GPIO_OPEN_DRAIN) | NPCX_GPIO_VOLTAGE_1P8) }, // pbtn_out_l
 };
 
+
+// Read-only observations; these pads are inputs from reset and are not reconfigured.
+struct lilac_input { const struct device *port; gpio_pin_t pin; const char *name; };
+static const struct lilac_input inputs[] = {
+    { DEVICE_DT_GET(DT_NODELABEL(gpio9)), 4, "pg_3v5v" },
+    { DEVICE_DT_GET(DT_NODELABEL(gpio9)), 7, "pg_vr" },
+    { DEVICE_DT_GET(DT_NODELABEL(gpioa)), 3, "slp_s3_l" },
+    { DEVICE_DT_GET(DT_NODELABEL(gpio9)), 5, "slp_s5_l" },
+};
+
+// One-time report after the first setup: pad levels as the EC reads them, in
+// table order. A pad driven low that reads high indicates contention.
+static void lilac_diagnostic_report(void) {
+    char levels[ARRAY_SIZE(pins) + 1];
+    unsigned stuck = 0;
+    k_msleep(1);
+    for (size_t i = 0; i < ARRAY_SIZE(pins); i++) {
+        int level = gpio_pin_get_raw(pins[i].port, pins[i].pin);
+        levels[i] = level < 0 ? '?' : (char)('0' + level);
+        if (!(pins[i].flags & GPIO_OUTPUT_INIT_HIGH) && level != 0) {
+            stuck++;
+        }
+    }
+    levels[ARRAY_SIZE(pins)] = '\0';
+    printk("Lilac diag: %u/%u pins configured, pads=%s, low-driven-not-low=%u\n",
+        (unsigned)ARRAY_SIZE(pins), (unsigned)ARRAY_SIZE(pins), levels, stuck);
+    printk("Lilac diag: inputs");
+    for (size_t i = 0; i < ARRAY_SIZE(inputs); i++) {
+        printk(" %s=%d", inputs[i].name, gpio_pin_get_raw(inputs[i].port, inputs[i].pin));
+    }
+    printk("\n");
+}
+
 void lilac_diagnostic_reset(void) {
     // Attempt every pin even after an error, so one failure does not leave
     // the remaining controls unconfigured; then halt before Python.
+    static bool reported;
     bool failed = false;
     for (size_t i = 0; i < ARRAY_SIZE(pins); i++) {
         if (!device_is_ready(pins[i].port) ||
@@ -51,5 +85,9 @@ void lilac_diagnostic_reset(void) {
     if (failed) {
         printk("Lilac GPIO initialization failed; halting before Python\n");
         for (;;) { k_sleep(K_FOREVER); }
+    }
+    if (!reported) {
+        reported = true;
+        lilac_diagnostic_report();
     }
 }

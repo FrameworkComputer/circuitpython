@@ -8,6 +8,11 @@ port reset reapplies them. Every pin is attempted even after an error; any
 GPIO setup error then halts before Python. A pin whose setup failed keeps its
 previous state, so this cannot guarantee a safe electrical state.
 
+After the first successful setup, native code prints two `Lilac diag:` lines:
+the level read back on each configured pad in table order (with a count of
+pads driven low that do not read low) and the 3V/5V power-good, VR power-good,
+SLP_S3 and SLP_S5 inputs. These are read-only observations, not protection.
+
 Filesystem initialization returns before touching flash; low-level flash
 initialization cannot discover a flash area. No FAT partition is declared.
 Raw GPIO/NVM modules and busio registration are excluded; UART internals remain
