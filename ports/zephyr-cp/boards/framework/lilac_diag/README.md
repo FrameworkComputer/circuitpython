@@ -64,7 +64,7 @@ ACPI EC framing for the generic addresses with SCI on GPIO `ec_sci_l`;
 Port 80 buffered for `lilac.port80()`. 8042 bytes are consumed and counted,
 no keyboard controller. `lilac.espi_status()` reports state and counters.
 
-AP power control (`9a56f57fa8`, built, not run on hardware): `powerctl.c`
+AP power control (`9a56f57fa8`, run on Lilac in G3 only, 2026-11-15): `powerctl.c`
 holds stock power_sequence.c's ordering as interlocks (each output only
 after its predecessor, stock delay and power good; SYS_PWRGD only after VR
 power good), follows SLP_S3/SLP_S5 down natively with stock delays, and
