@@ -1,6 +1,9 @@
 # Lilac AP-off diagnostic candidate
 
-Build only; not hardware validated or approved for flashing.
+Booted once on Lilac hardware (2026-11-15, adapter only, no battery, AP off):
+UART REPL reached, 28/28 pins configured, inputs matched the stock G3 state.
+No rail, current or temperature measurement was taken; not validated beyond
+that.
 
 `make BOARD=framework_lilac_diag` builds a separate NPCX993 target. Native
 main configures stock-intent output levels before CircuitPython, and native
