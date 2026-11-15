@@ -74,6 +74,8 @@ static const struct lilac_input inputs[] = {
     { DEVICE_DT_GET(DT_NODELABEL(gpio7)), 5, GPIO_INPUT, "als_int_l" },
 };
 #define LILAC_REPORTED_INPUTS 4
+// slp_s3_l: stock power-good pin of the F75303 sensors and the fan.
+#define LILAC_INPUT_SLP_S3_L 2
 
 // One-time report after the first setup: pad levels as the EC reads them, in
 // table order. A pad driven low that reads high indicates contention.
@@ -248,18 +250,41 @@ int lilac_charger_update(uint8_t reg, uint16_t mask, uint16_t value, uint16_t *r
     return 0;
 }
 
-int lilac_thermal_read(uint8_t reg, uint8_t *value) {
+int lilac_sensor_power(void) {
+    return lilac_input_get(LILAC_INPUT_SLP_S3_L);
+}
+
+// The F75303 sits on a rail that is up only in S0, as the stock sensors'
+// power-good pin (slp_s3_l) says; stock reads none of them otherwise. With
+// that pin low the bus is not touched (in G3 it is held low and the driver's
+// recovery attempt fails), and the read returns -EAGAIN.
+static int thermal_read(uint8_t reg, uint8_t *value, bool quiet) {
     if (!reg_allowed(thermal_regs, ARRAY_SIZE(thermal_regs), reg)) {
         return -EPERM;
+    }
+    int power = lilac_sensor_power();
+    if (power < 0) {
+        return power;
+    }
+    if (power != 1) {
+        return -EAGAIN;
     }
     if (!i2c_is_ready_dt(&thermal)) {
         return -ENODEV;
     }
     int ret = i2c_write_read_dt(&thermal, &reg, 1, value, 1);
-    if (ret != 0) {
+    if (ret != 0 && !quiet) {
         LOG_WRN("thermal read 0x%02x failed: %d", reg, ret);
     }
     return ret;
+}
+
+int lilac_thermal_read(uint8_t reg, uint8_t *value) {
+    return thermal_read(reg, value, false);
+}
+
+int lilac_thermal_read_quiet(uint8_t reg, uint8_t *value) {
+    return thermal_read(reg, value, true);
 }
 
 void lilac_diagnostic_reset(void) {
@@ -287,5 +312,6 @@ void lilac_diagnostic_reset(void) {
         reported = true;
         lilac_diagnostic_report();
         lilac_heartbeat_start();
+        lilac_fan_start();
     }
 }

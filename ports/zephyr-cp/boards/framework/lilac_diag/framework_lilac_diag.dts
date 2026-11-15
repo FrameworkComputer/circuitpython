@@ -4,6 +4,7 @@
 #include <nuvoton/npcx/npcx9/npcx9-pinctrl.dtsi>
 #include <zephyr/dt-bindings/i2c/i2c.h>
 #include <zephyr/dt-bindings/pwm/pwm.h>
+#include <zephyr/dt-bindings/sensor/npcx_tach.h>
 
 / {
     model = "Framework Lilac AP-off diagnostic candidate";
@@ -29,6 +30,28 @@
     clock-bus = "NPCX_CLOCK_BUS_LFCLK";
     pinctrl-0 = <&pwm4_gpb6>;
     pinctrl-names = "default";
+};
+
+// Fan, as stock laptop13/fan.dtsi: PWM0 on GPC3 (open-drain), tach TA2 on
+// GP73 sampled from LFCLK, 2 pulses per turn. The fan is powered only in S0;
+// native fan.c applies duty 0 while slp_s3_l is low.
+&pwm0_gpc3 {
+    drive-open-drain;
+};
+
+&pwm0 {
+    status = "okay";
+    pinctrl-0 = <&pwm0_gpc3>;
+    pinctrl-names = "default";
+};
+
+&tach2 {
+    status = "okay";
+    pinctrl-0 = <&ta2_1_in_gp73>;
+    pinctrl-names = "default";
+    port = <NPCX_TACH_PORT_A>;
+    sample-clk = <NPCX_TACH_FREQ_LFCLK>;
+    pulses-per-round = <2>;
 };
 
 // Charger/battery SMBus, as stock lilac/i2c.dtsi. Native reads only; the
