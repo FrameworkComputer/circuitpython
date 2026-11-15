@@ -4,6 +4,10 @@ CIRCUITPY_BUILD_EXTENSIONS = ["elf"]
 CIRCUITPY_ULAB = false
 CIRCUITPY_FULL_BUILD = false
 LILAC_DIAGNOSTIC = true
+# littlefs CIRCUITPY in the fixed partition only; Python writes via open()/os.
+LILAC_STORAGE = true
+# Console UART receive buffer; 64 bytes overruns on long REPL lines.
+CONSOLE_UART_RX_BUFFER_SIZE = 1024
 # I2C buses belong to native code; Python reads them through `lilac` only.
 BOARD_BUS_OBJECTS = false
 DISABLED_MODULES = [

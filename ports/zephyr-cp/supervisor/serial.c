@@ -14,7 +14,10 @@ usb_cdc_serial_obj_t *usb_console;
 #else
 #include "shared-bindings/busio/UART.h"
 static busio_uart_obj_t uart_console;
-static uint8_t buffer[64];
+#ifndef CIRCUITPY_CONSOLE_UART_RX_BUFFER_SIZE
+#define CIRCUITPY_CONSOLE_UART_RX_BUFFER_SIZE 64
+#endif
+static uint8_t buffer[CIRCUITPY_CONSOLE_UART_RX_BUFFER_SIZE];
 #endif
 
 void port_serial_early_init(void) {

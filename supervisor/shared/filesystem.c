@@ -259,7 +259,7 @@ static bool lfs_write_boot_file(const char *path, const char *contents, size_t s
 // we don't make this function static because it needs a lot of stack and we
 // want it to be executed without using stack within main() function
 bool filesystem_init(bool create_allowed, bool force_create) {
-    #if CIRCUITPY_LILAC_DIAGNOSTIC
+    #if CIRCUITPY_LILAC_DIAGNOSTIC && !CIRCUITPY_LILAC_STORAGE
     // No flash init, mount, format, metadata update or default files.
     return false;
     #endif

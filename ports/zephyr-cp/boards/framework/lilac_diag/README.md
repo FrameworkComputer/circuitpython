@@ -33,8 +33,12 @@ are driven high, a deliberate deviation from the stock initial low. The
 heartbeat shows the kernel work queue is alive, not Python. Zephyr minimal
 logging prints driver warnings and failed reads on the console.
 
-Filesystem initialization returns before touching flash; low-level flash
-initialization cannot discover a flash area. No FAT partition is declared.
+Storage (image 4 onward, `LILAC_STORAGE = true`): littlefs CIRCUITPY in the
+fixed partition `0x41000..0x7ffff` (252 KiB); the build fails if that
+partition is missing, so runtime flash discovery can never pick the firmware
+region. Python writes files with `open()`/`os`; there is no USB drive, files
+are copied over the UART REPL. The first boot formats the partition. The
+console UART receive buffer is 1 KiB (`CONSOLE_UART_RX_BUFFER_SIZE`).
 Raw GPIO/NVM modules and busio registration are excluded; UART internals remain
 compiled for the native console. The board module contains inert pin names. No AP, charger, PD, cooling, host or
 emergency protection services are implemented. Do not power the AP.

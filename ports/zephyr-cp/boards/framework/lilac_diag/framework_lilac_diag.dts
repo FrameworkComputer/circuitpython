@@ -87,4 +87,20 @@
 &gpioe { ngpios = <8>; };
 &gpiof { ngpios = <8>; };
 
-// No filesystem partition in the diagnostic target.
+// CIRCUITPY storage: littlefs (power-loss tolerant) in the upper flash half,
+// the same region the generic NPCX993 target uses for FAT. The firmware image
+// (header + payload, under 0x41000) stays outside it; flash_area bounds every
+// filesystem access to this partition. Stale stock bytes here are replaced by
+// the first format. The stock image is backed up externally.
+&int_flash {
+    partitions {
+        compatible = "fixed-partitions";
+        #address-cells = <1>;
+        #size-cells = <1>;
+
+        littlefs_partition: partition@41000 {
+            label = "circuitpy";
+            reg = <0x41000 0x3f000>;
+        };
+    };
+};

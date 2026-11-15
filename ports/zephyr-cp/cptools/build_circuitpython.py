@@ -401,6 +401,13 @@ async def build_circuitpython():  # noqa: C901
     circuitpython_flags.append(
         f"-DCIRCUITPY_LILAC_DIAGNOSTIC={1 if mpconfigboard.get('LILAC_DIAGNOSTIC', False) else 0}"
     )
+    circuitpython_flags.append(
+        f"-DCIRCUITPY_LILAC_STORAGE={1 if mpconfigboard.get('LILAC_STORAGE', False) else 0}"
+    )
+    if "CONSOLE_UART_RX_BUFFER_SIZE" in mpconfigboard:
+        circuitpython_flags.append(
+            f"-DCIRCUITPY_CONSOLE_UART_RX_BUFFER_SIZE={int(mpconfigboard['CONSOLE_UART_RX_BUFFER_SIZE'])}"
+        )
     circuitpython_flags.append("-DLONGINT_IMPL_MPZ")
     circuitpython_flags.append("-DCIRCUITPY_SSL_MBEDTLS")
     circuitpython_flags.append("-DFFCONF_H='\"lib/oofatfs/ffconf.h\"'")

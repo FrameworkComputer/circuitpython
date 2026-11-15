@@ -36,6 +36,11 @@
 #endif
 static const struct flash_area *filesystem_area = NULL;
 
+#if CIRCUITPY_LILAC_DIAGNOSTIC && CIRCUITPY_LILAC_STORAGE && !FIXED_PARTITION_EXISTS(CIRCUITPY_PARTITION)
+// Runtime discovery could pick the whole EC flash, including the firmware.
+#error "Lilac storage requires a fixed CIRCUITPY partition"
+#endif
+
 #if !FIXED_PARTITION_EXISTS(CIRCUITPY_PARTITION)
 static struct flash_area _dynamic_area;
 #endif
@@ -130,7 +135,7 @@ static void fa_cb(const struct flash_area *fa, void *user_data) {
 }
 
 void supervisor_flash_init(void) {
-    #if CIRCUITPY_LILAC_DIAGNOSTIC
+    #if CIRCUITPY_LILAC_DIAGNOSTIC && !CIRCUITPY_LILAC_STORAGE
     // Keep filesystem_area NULL even for explicit block-device access.
     return;
     #endif
