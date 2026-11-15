@@ -114,3 +114,40 @@ int lilac_hc_poll(struct lilac_hc_request *req);
 // Answer request `seq`; -ETIMEDOUT if it was already answered (timeout) or
 // dropped, -EINVAL if data is longer than LILAC_HC_DATA_MAX.
 int lilac_hc_respond(uint32_t seq, uint16_t result, const uint8_t *data, size_t len);
+
+// True while the eSPI virtual-wire channel is ready (espi.c).
+bool lilac_espi_vw_ready(void);
+
+// AP power rails (power.c, powerctl.c). This diagnostic build is disarmed:
+// every assertion is refused with -EPERM, so no rail can be enabled; the
+// protection and power-down logic still runs. Arming is a separate,
+// reviewed build change, not a runtime switch.
+#ifndef LILAC_POWER_ARMED
+#define LILAC_POWER_ARMED 0
+#endif
+#define LILAC_POWER_OUTPUTS 11
+#define LILAC_POWER_INPUTS 4
+
+struct lilac_power_status {
+    bool armed;
+    const char *fault;       // "none" or the latched fault
+    uint32_t faults;
+    int64_t fault_ms;        // uptime of the latched fault, -1 if none
+    uint8_t out[LILAC_POWER_OUTPUTS];  // powerctl.h order
+    uint8_t in[LILAC_POWER_INPUTS];    // alw_pg, vr_pg, slp_s3_l, slp_s5_l
+    bool vw_ready;
+    int32_t lease_ms;        // remaining Python lease, -1 with all rails off
+    uint32_t ticks, write_errors, input_errors;
+};
+
+// 0 or -EINVAL (unknown name / level), -EPERM (disarmed), -EBUSY (fault
+// latched or powering down), -EAGAIN (predecessor, delay or power good
+// missing). Lowering is always accepted.
+int lilac_power_set(const char *name, int level);
+int lilac_power_pbtn_pulse(void);
+void lilac_power_heartbeat(void);
+void lilac_power_off(void);
+void lilac_power_reload(void);
+int lilac_power_clear_fault(void);
+void lilac_power_status(struct lilac_power_status *status);
+const char *lilac_power_out_name(int out);

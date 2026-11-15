@@ -292,6 +292,9 @@ void lilac_diagnostic_reset(void) {
     // the remaining controls unconfigured; then halt before Python.
     static bool reported;
     bool failed = false;
+    // Rails still up after a Python reload go off in stock order, latched,
+    // before the table below drives every output low anyway.
+    lilac_power_reload();
     for (size_t i = 0; i < ARRAY_SIZE(pins); i++) {
         if (!device_is_ready(pins[i].port) ||
             gpio_pin_configure(pins[i].port, pins[i].pin, pins[i].flags) != 0) {

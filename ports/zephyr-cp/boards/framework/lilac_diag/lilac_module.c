@@ -293,6 +293,90 @@ static mp_obj_t lilac_hc_respond_fn(size_t n_args, const mp_obj_t *args) {
 }
 static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lilac_hc_respond_obj, 2, 3, lilac_hc_respond_fn);
 
+// Power calls report every refusal as OSError(errno); EPERM means disarmed.
+static void power_check(int ret) {
+    if (ret < 0) {
+        mp_raise_OSError(-ret);
+    }
+}
+
+//| def power_set(name: str, level: int) -> None:
+//|     """Request one AP power output (names from power_status()). Raises
+//|     OSError EPERM (disarmed build), EBUSY (fault latched or powering
+//|     down), EAGAIN (stock predecessor, delay or power good missing; retry)
+//|     or EINVAL. Lowering is always accepted. Refreshes the 1 s lease."""
+static mp_obj_t lilac_power_set_fn(mp_obj_t name_in, mp_obj_t level_in) {
+    power_check(lilac_power_set(mp_obj_str_get_str(name_in), mp_obj_get_int(level_in)));
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(lilac_power_set_obj, lilac_power_set_fn);
+
+//| def power_pbtn_pulse() -> None:
+//|     """Stock 20 ms power-button press (needs RSMRST released for 90 ms)."""
+static mp_obj_t lilac_power_pbtn_pulse_fn(void) {
+    power_check(lilac_power_pbtn_pulse());
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_0(lilac_power_pbtn_pulse_obj, lilac_power_pbtn_pulse_fn);
+
+//| def power_heartbeat() -> None:
+//|     """Refresh the lease; with rails up, native code switches everything
+//|     off (fault 'lease') if this is not called for 1 s."""
+static mp_obj_t lilac_power_heartbeat_fn(void) {
+    lilac_power_heartbeat();
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_0(lilac_power_heartbeat_obj, lilac_power_heartbeat_fn);
+
+//| def power_off() -> None:
+//|     """All AP power outputs off at once in stock force_g3 order."""
+static mp_obj_t lilac_power_off_fn(void) {
+    lilac_power_off();
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_0(lilac_power_off_obj, lilac_power_off_fn);
+
+//| def power_clear_fault() -> None:
+//|     """Clear a latched fault (OSError EBUSY while any output is high)."""
+static mp_obj_t lilac_power_clear_fault_fn(void) {
+    power_check(lilac_power_clear_fault());
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_0(lilac_power_clear_fault_obj, lilac_power_clear_fault_fn);
+
+//| def power_status() -> dict:
+//|     """armed, fault ('none' or latched reason), faults, fault_ms,
+//|     outputs (name -> level), inputs (pg_3v5v, pg_vr, slp_s3_l, slp_s5_l
+//|     as last sampled by the 1 ms monitor), vw_ready, lease_ms, ticks,
+//|     write_errors, input_errors."""
+static mp_obj_t lilac_power_status_fn(void) {
+    static const char *const in_names[LILAC_POWER_INPUTS] = { "pg_3v5v", "pg_vr", "slp_s3_l", "slp_s5_l" };
+    struct lilac_power_status st;
+    lilac_power_status(&st);
+    mp_obj_t outputs = mp_obj_new_dict(LILAC_POWER_OUTPUTS);
+    for (int i = 0; i < LILAC_POWER_OUTPUTS; i++) {
+        lilac_store(outputs, lilac_power_out_name(i), MP_OBJ_NEW_SMALL_INT(st.out[i]));
+    }
+    mp_obj_t inputs = mp_obj_new_dict(LILAC_POWER_INPUTS);
+    for (int i = 0; i < LILAC_POWER_INPUTS; i++) {
+        lilac_store(inputs, in_names[i], MP_OBJ_NEW_SMALL_INT(st.in[i]));
+    }
+    mp_obj_t dict = mp_obj_new_dict(12);
+    lilac_store(dict, "armed", mp_obj_new_bool(st.armed));
+    lilac_store(dict, "fault", mp_obj_new_str(st.fault, strlen(st.fault)));
+    lilac_store(dict, "faults", mp_obj_new_int_from_uint(st.faults));
+    lilac_store(dict, "fault_ms", mp_obj_new_int_from_ll(st.fault_ms));
+    lilac_store(dict, "outputs", outputs);
+    lilac_store(dict, "inputs", inputs);
+    lilac_store(dict, "vw_ready", mp_obj_new_bool(st.vw_ready));
+    lilac_store(dict, "lease_ms", mp_obj_new_int(st.lease_ms));
+    lilac_store(dict, "ticks", mp_obj_new_int_from_uint(st.ticks));
+    lilac_store(dict, "write_errors", mp_obj_new_int_from_uint(st.write_errors));
+    lilac_store(dict, "input_errors", mp_obj_new_int_from_uint(st.input_errors));
+    return dict;
+}
+static MP_DEFINE_CONST_FUN_OBJ_0(lilac_power_status_obj, lilac_power_status_fn);
+
 static const mp_rom_map_elem_t lilac_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_lilac) },
     { MP_ROM_QSTR(MP_QSTR_inputs), MP_ROM_PTR(&lilac_inputs_obj) },
@@ -310,6 +394,12 @@ static const mp_rom_map_elem_t lilac_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_port80), MP_ROM_PTR(&lilac_port80_obj) },
     { MP_ROM_QSTR(MP_QSTR_hc_poll), MP_ROM_PTR(&lilac_hc_poll_obj) },
     { MP_ROM_QSTR(MP_QSTR_hc_respond), MP_ROM_PTR(&lilac_hc_respond_obj) },
+    { MP_ROM_QSTR(MP_QSTR_power_set), MP_ROM_PTR(&lilac_power_set_obj) },
+    { MP_ROM_QSTR(MP_QSTR_power_pbtn_pulse), MP_ROM_PTR(&lilac_power_pbtn_pulse_obj) },
+    { MP_ROM_QSTR(MP_QSTR_power_heartbeat), MP_ROM_PTR(&lilac_power_heartbeat_obj) },
+    { MP_ROM_QSTR(MP_QSTR_power_off), MP_ROM_PTR(&lilac_power_off_obj) },
+    { MP_ROM_QSTR(MP_QSTR_power_clear_fault), MP_ROM_PTR(&lilac_power_clear_fault_obj) },
+    { MP_ROM_QSTR(MP_QSTR_power_status), MP_ROM_PTR(&lilac_power_status_obj) },
 };
 static MP_DEFINE_CONST_DICT(lilac_module_globals, lilac_module_globals_table);
 

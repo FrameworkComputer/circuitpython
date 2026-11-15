@@ -276,6 +276,10 @@ static int lilac_espi_init(void) {
 }
 SYS_INIT(lilac_espi_init, APPLICATION, 0);
 
+bool lilac_espi_vw_ready(void) {
+    return vw_ready;
+}
+
 void lilac_espi_status(struct lilac_espi_status *st) {
     k_spinlock_key_t key = k_spin_lock(&lock);
     st->config_result = started ? 0 : config_result;
