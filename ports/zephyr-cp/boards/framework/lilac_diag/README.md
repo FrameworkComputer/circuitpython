@@ -51,9 +51,22 @@ its stock full-fan temperature. The stock 120 C halt is latched and logged;
 there is no shutdown path. `thermal_read()` raises EAGAIN without bus access
 while `slp_s3_l` is low. `lilac.fan_status()` and `temp_limits()` report.
 
+eSPI host interface (`7a0d2e85b6`, run on Lilac in G3 only, 2026-11-15):
+`espi0` with stock pinctrl and stock Kconfig (ACPI SHM 512 B at 0xe00,
+multi-byte Port 80). `espi.c` configures it at boot like the stock shim and
+applies two Framework zephyr-ec deltas from board code (VW index 0x33 on
+VWEVMS[8], ACPI SHM window writable by the host). `hostif.c` holds the
+protocol logic: protocol 3 packet validation and responses as stock, one
+host command at a time handed to Python (`lilac.hc_poll()` /
+`lilac.hc_respond()`), answered EC_RES_TIMEOUT natively after 100 ms and
+dropped on eSPI or platform reset; GET_PROTOCOL_INFO answered natively;
+ACPI EC framing for the generic addresses with SCI on GPIO `ec_sci_l`;
+Port 80 buffered for `lilac.port80()`. 8042 bytes are consumed and counted,
+no keyboard controller. `lilac.espi_status()` reports state and counters.
+
 Raw GPIO/NVM modules and busio registration are excluded; UART internals remain
-compiled for the native console. The board module contains inert pin names. No AP, charger, PD, host or emergency
-shutdown services are implemented; cooling is unverified on hardware. Do not power the AP.
+compiled for the native console. The board module contains inert pin names. No AP sequencing, charger policy, PD,
+keyboard controller, watchdog or emergency shutdown services are implemented; cooling is unverified on hardware. Do not power the AP.
 
 Pin source: ec-lilac 6bcd05acb6c11cc2a2e247118b9e741bf7e6d1f0,
 zephyr/program/framework/lilac/gpio.dtsi. All stock output defaults are
