@@ -39,11 +39,17 @@ static const struct lilac_pin pins[] = {
 };
 
 void lilac_diagnostic_reset(void) {
+    // Attempt every pin even after an error, so one failure does not leave
+    // the remaining controls unconfigured; then halt before Python.
+    bool failed = false;
     for (size_t i = 0; i < ARRAY_SIZE(pins); i++) {
         if (!device_is_ready(pins[i].port) ||
             gpio_pin_configure(pins[i].port, pins[i].pin, pins[i].flags) != 0) {
-            printk("Lilac GPIO initialization failed; halting before Python\n");
-            for (;;) { k_sleep(K_FOREVER); }
+            failed = true;
         }
+    }
+    if (failed) {
+        printk("Lilac GPIO initialization failed; halting before Python\n");
+        for (;;) { k_sleep(K_FOREVER); }
     }
 }

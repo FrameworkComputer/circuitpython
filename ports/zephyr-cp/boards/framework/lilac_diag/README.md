@@ -4,8 +4,9 @@ Build only; not hardware validated or approved for flashing.
 
 `make BOARD=framework_lilac_diag` builds a separate NPCX993 target. Native
 main configures stock-intent output levels before CircuitPython, and native
-port reset reapplies them. Any GPIO setup error halts before Python; this
-cannot guarantee a safe electrical state after a partial setup failure.
+port reset reapplies them. Every pin is attempted even after an error; any
+GPIO setup error then halts before Python. A pin whose setup failed keeps its
+previous state, so this cannot guarantee a safe electrical state.
 
 Filesystem initialization returns before touching flash; low-level flash
 initialization cannot discover a flash area. No FAT partition is declared.
