@@ -1,0 +1,2 @@
+config BOARD_FRAMEWORK_LILAC_DIAG
+    select SOC_NPCX9M3F

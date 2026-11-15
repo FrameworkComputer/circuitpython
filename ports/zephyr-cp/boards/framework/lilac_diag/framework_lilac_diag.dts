@@ -1,0 +1,43 @@
+/dts-v1/;
+
+#include <nuvoton/npcx9m3f.dtsi>
+#include <nuvoton/npcx/npcx9/npcx9-pinctrl.dtsi>
+
+/ {
+    model = "Framework Lilac AP-off diagnostic candidate";
+    compatible = "framework,lilac-diag";
+
+    chosen {
+        zephyr,sram = &sram0;
+        zephyr,flash = &flash0;
+        zephyr,console = &uart1;
+    };
+};
+
+// Same console routing as Framework's NPCX9 EC board definition.
+&uart1 {
+    status = "okay";
+    current-speed = <115200>;
+    pinctrl-0 = <&uart1_2_sin_gp64 &uart1_2_sout_gp65>;
+    pinctrl-names = "default";
+};
+
+// NPCX GPIO ports have eight pins, rather than the generator's 32-pin default.
+&gpio0 { ngpios = <8>; };
+&gpio1 { ngpios = <8>; };
+&gpio2 { ngpios = <8>; };
+&gpio3 { ngpios = <8>; };
+&gpio4 { ngpios = <8>; };
+&gpio5 { ngpios = <8>; };
+&gpio6 { ngpios = <8>; };
+&gpio7 { ngpios = <8>; };
+&gpio8 { ngpios = <8>; };
+&gpio9 { ngpios = <8>; };
+&gpioa { ngpios = <8>; };
+&gpiob { ngpios = <8>; };
+&gpioc { ngpios = <8>; };
+&gpiod { ngpios = <8>; };
+&gpioe { ngpios = <8>; };
+&gpiof { ngpios = <8>; };
+
+// No filesystem partition in the diagnostic target.

@@ -23,7 +23,14 @@ __attribute__((constructor)) static void cp_disable_asan_fake_stack(void) {
 }
 #endif
 
+#if defined(CONFIG_BOARD_FRAMEWORK_LILAC_DIAG)
+extern void lilac_diagnostic_reset(void);
+#endif
+
 int main(void) {
+    #if defined(CONFIG_BOARD_FRAMEWORK_LILAC_DIAG)
+    lilac_diagnostic_reset();
+    #endif
     // Use a unique name for CP main so that the linker needs to look in libcircuitpython.a
     return circuitpython_main();
 }

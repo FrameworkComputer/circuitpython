@@ -234,6 +234,10 @@ void reset_cpu(void) {
 }
 
 void reset_port(void) {
+    #if defined(CONFIG_BOARD_FRAMEWORK_LILAC_DIAG)
+    extern void lilac_diagnostic_reset(void);
+    lilac_diagnostic_reset();
+    #endif
     #if CIRCUITPY_AUDIOBUSIO_I2SOUT
     i2sout_reset();
     #endif

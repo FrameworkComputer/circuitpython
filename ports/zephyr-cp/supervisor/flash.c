@@ -130,6 +130,10 @@ static void fa_cb(const struct flash_area *fa, void *user_data) {
 }
 
 void supervisor_flash_init(void) {
+    #if CIRCUITPY_LILAC_DIAGNOSTIC
+    // Keep filesystem_area NULL even for explicit block-device access.
+    return;
+    #endif
     if (filesystem_area != NULL) {
         return;
     }

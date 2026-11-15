@@ -12,6 +12,10 @@ include(ExternalProject)
 
 target_sources(app PRIVATE zephyr_main.c)
 
+if(CONFIG_BOARD_FRAMEWORK_LILAC_DIAG)
+    target_sources(app PRIVATE boards/framework/lilac_diag/diagnostic.c)
+endif()
+
 # Add I2C emulator control for native_sim testing
 if(CONFIG_BOARD_NATIVE_SIM)
     target_sources(app PRIVATE native_sim_i2c_emul_control.c)

@@ -398,6 +398,9 @@ async def build_circuitpython():  # noqa: C901
     circuitpython_flags.append(f"-DCIRCUITPY_BOARD_ID='\"{board}\"'")
     circuitpython_flags.append(f"-DCIRCUITPY_TRANSLATE_OBJECT={1 if lto else 0}")
     circuitpython_flags.append("-DINTERNAL_FLASH_FILESYSTEM")
+    circuitpython_flags.append(
+        f"-DCIRCUITPY_LILAC_DIAGNOSTIC={1 if mpconfigboard.get('LILAC_DIAGNOSTIC', False) else 0}"
+    )
     circuitpython_flags.append("-DLONGINT_IMPL_MPZ")
     circuitpython_flags.append("-DCIRCUITPY_SSL_MBEDTLS")
     circuitpython_flags.append("-DFFCONF_H='\"lib/oofatfs/ffconf.h\"'")

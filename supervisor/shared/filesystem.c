@@ -259,6 +259,10 @@ static bool lfs_write_boot_file(const char *path, const char *contents, size_t s
 // we don't make this function static because it needs a lot of stack and we
 // want it to be executed without using stack within main() function
 bool filesystem_init(bool create_allowed, bool force_create) {
+    #if CIRCUITPY_LILAC_DIAGNOSTIC
+    // No flash init, mount, format, metadata update or default files.
+    return false;
+    #endif
     mp_vfs_mount_t *circuitpy_vfs = &_circuitpy_vfs;
     circuitpy_vfs->len = 0;
 

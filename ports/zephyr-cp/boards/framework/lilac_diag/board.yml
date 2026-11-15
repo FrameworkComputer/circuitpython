@@ -1,0 +1,6 @@
+board:
+  name: framework_lilac_diag
+  full_name: Framework Lilac AP-off diagnostic candidate
+  vendor: framework
+  socs:
+    - name: npcx9m3f

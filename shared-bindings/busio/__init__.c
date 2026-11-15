@@ -78,4 +78,7 @@ const mp_obj_module_t busio_module = {
     .globals = (mp_obj_dict_t *)&busio_module_globals,
 };
 
+// The Lilac diagnostic REPL retains UART internals for its console only.
+#if !CIRCUITPY_LILAC_DIAGNOSTIC
 MP_REGISTER_MODULE(MP_QSTR_busio, busio_module);
+#endif

@@ -1,0 +1,17 @@
+NAME = "Lilac AP-off diagnostic candidate"
+VENDOR = "Framework"
+CIRCUITPY_BUILD_EXTENSIONS = ["elf"]
+CIRCUITPY_ULAB = false
+CIRCUITPY_FULL_BUILD = false
+LILAC_DIAGNOSTIC = true
+DISABLED_MODULES = [
+    "digitalio", "microcontroller", "nvm", "storage",
+    "bitbangio", "zephyr_serial", "zephyr_i2c", "zephyr_spi",
+    "aesio", "hashlib", "zlib", "msgpack", "rainbowio", "rotaryio",
+    "adafruit_bus_device", "asyncio", "select", "re", "json", "math",
+    "getpass", "warnings", "traceback", "pwmio", "analogio",
+    "fourwire", "i2cdisplaybus", "sdcardio", "sharpdisplay", "displayio",
+    "busdisplay", "epaperdisplay", "vectorio", "bitmapfilter", "bitmaptools",
+    "terminalio", "lvfontio", "tilepalettemapper", "fontio", "gifio",
+    "jpegio", "framebufferio",
+]
