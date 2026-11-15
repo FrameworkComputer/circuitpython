@@ -42,9 +42,18 @@ partition is missing, so runtime flash discovery can never pick the firmware
 region. Python writes files with `open()`/`os`; there is no USB drive, files
 are copied over the UART REPL. The first boot formats the partition. The
 console UART receive buffer is 1 KiB (`CONSOLE_UART_RX_BUFFER_SIZE`).
+Fan and thermal floor (`b5cf28695d`, built, not yet run on hardware):
+PWM0/GPC3 and tach TA2/GP73 as stock. A native 1 s monitor on the system
+work queue applies duty 0 while `slp_s3_l` (stock power-good pin of fan and
+sensors) is low; in S0 it applies `lilac.fan_set()`'s request, or 100 % when
+that request is older than 5 s, an F75303 read fails, or a sensor reaches
+its stock full-fan temperature. The stock 120 C halt is latched and logged;
+there is no shutdown path. `thermal_read()` raises EAGAIN without bus access
+while `slp_s3_l` is low. `lilac.fan_status()` and `temp_limits()` report.
+
 Raw GPIO/NVM modules and busio registration are excluded; UART internals remain
-compiled for the native console. The board module contains inert pin names. No AP, charger, PD, cooling, host or
-emergency protection services are implemented. Do not power the AP.
+compiled for the native console. The board module contains inert pin names. No AP, charger, PD, host or emergency
+shutdown services are implemented; cooling is unverified on hardware. Do not power the AP.
 
 Pin source: ec-lilac 6bcd05acb6c11cc2a2e247118b9e741bf7e6d1f0,
 zephyr/program/framework/lilac/gpio.dtsi. All stock output defaults are
