@@ -84,6 +84,13 @@
     };
 };
 
+// Host interface, as stock lilac/gpio.dtsi. Native espi.c owns it.
+&espi0 {
+    status = "okay";
+    pinctrl-0 = <&espi_lpc_gp46_47_51_52_53_54_55_57>;
+    pinctrl-names = "default";
+};
+
 // Same console routing as Framework's NPCX9 EC board definition.
 &uart1 {
     status = "okay";

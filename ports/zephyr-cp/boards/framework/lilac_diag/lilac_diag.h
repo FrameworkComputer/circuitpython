@@ -77,3 +77,40 @@ const struct lilac_temp_limit *lilac_temp_limits(size_t *count);
 int lilac_fan_set(int percent);
 void lilac_fan_status(struct lilac_fan_status *status);
 void lilac_fan_start(void);
+
+// eSPI host interface (espi.c), configured as stock at boot independent of
+// Python. Host commands go to Python through one slot: Python polls, then
+// answers; without an answer within LILAC_HC_TIMEOUT_MS native code answers
+// EC_RES_TIMEOUT. eSPI or platform reset drops a pending request.
+#define LILAC_HC_TIMEOUT_MS 100
+#define LILAC_HC_DATA_MAX 248
+
+struct lilac_espi_status {
+    int config_result;   // 0 once configured, else negative errno
+    bool vw_ready;       // VW channel ready since the last eSPI reset
+    int8_t espi_rst;     // last eSPI_RST# level, -1 if no edge seen
+    int8_t pltrst;       // last PLTRST# VW level, -1 if never received
+    uint32_t espi_resets, pltrst_edges;
+    uint32_t hc_requests, hc_answered, hc_native, hc_bad, hc_busy, hc_timeouts,
+        hc_late, hc_aborted, hc_unknown_protocol;
+    uint32_t acpi_bytes, acpi_queries, acpi_ignored_reads, acpi_ignored_writes;
+    uint32_t kbc_bytes;
+    uint32_t port80_total, port80_dropped, port80_last;
+};
+
+struct lilac_hc_request {
+    uint32_t seq;
+    uint16_t command;
+    uint8_t version;
+    uint16_t data_len;
+    uint8_t data[LILAC_HC_DATA_MAX];
+};
+
+void lilac_espi_status(struct lilac_espi_status *status);
+// Moves up to max buffered Port 80 codes into out, oldest first.
+size_t lilac_port80_drain(uint32_t *out, size_t max);
+// 0 and the pending request, or -EAGAIN if none is pending.
+int lilac_hc_poll(struct lilac_hc_request *req);
+// Answer request `seq`; -ETIMEDOUT if it was already answered (timeout) or
+// dropped, -EINVAL if data is longer than LILAC_HC_DATA_MAX.
+int lilac_hc_respond(uint32_t seq, uint16_t result, const uint8_t *data, size_t len);

@@ -1,6 +1,7 @@
 // `lilac` module for the Lilac AP-off diagnostic target. Thin wrappers over
 // native mechanisms; all hardware access and its allowlists live in diagnostic.c.
 #include <errno.h>
+#include <stddef.h>
 #include <string.h>
 
 #include "py/obj.h"
@@ -207,6 +208,91 @@ static mp_obj_t lilac_temp_limits_fn(void) {
 }
 static MP_DEFINE_CONST_FUN_OBJ_0(lilac_temp_limits_obj, lilac_temp_limits_fn);
 
+//| def espi_status() -> dict:
+//|     """Native eSPI state and counters: configured (0 or -errno), vw_ready,
+//|     espi_rst and pltrst (last level, None before the first edge), reset
+//|     and PLTRST edge counts, host command counters (hc_*), ACPI byte
+//|     counters (acpi_*), kbc_bytes and port80 total/dropped/last."""
+static mp_obj_t lilac_espi_status_fn(void) {
+    struct lilac_espi_status st;
+    lilac_espi_status(&st);
+    mp_obj_t dict = mp_obj_new_dict(26);
+    lilac_store(dict, "configured", MP_OBJ_NEW_SMALL_INT(st.config_result));
+    lilac_store(dict, "vw_ready", mp_obj_new_bool(st.vw_ready));
+    lilac_store(dict, "espi_rst", st.espi_rst < 0 ? mp_const_none : MP_OBJ_NEW_SMALL_INT(st.espi_rst));
+    lilac_store(dict, "pltrst", st.pltrst < 0 ? mp_const_none : MP_OBJ_NEW_SMALL_INT(st.pltrst));
+    static const struct { const char *name; size_t offset; } counters[] = {
+        #define C(f) { #f, offsetof(struct lilac_espi_status, f) }
+        C(espi_resets), C(pltrst_edges),
+        C(hc_requests), C(hc_answered), C(hc_native), C(hc_bad), C(hc_busy),
+        C(hc_timeouts), C(hc_late), C(hc_aborted), C(hc_unknown_protocol),
+        C(acpi_bytes), C(acpi_queries), C(acpi_ignored_reads), C(acpi_ignored_writes),
+        C(kbc_bytes), C(port80_total), C(port80_dropped), C(port80_last),
+        #undef C
+    };
+    for (size_t i = 0; i < MP_ARRAY_SIZE(counters); i++) {
+        uint32_t v = *(const uint32_t *)((const uint8_t *)&st + counters[i].offset);
+        lilac_store(dict, counters[i].name, mp_obj_new_int_from_uint(v));
+    }
+    return dict;
+}
+static MP_DEFINE_CONST_FUN_OBJ_0(lilac_espi_status_obj, lilac_espi_status_fn);
+
+//| def port80() -> list[int]:
+//|     """Drain buffered Port 80 codes (up to 64, oldest first)."""
+static mp_obj_t lilac_port80_fn(void) {
+    uint32_t codes[64];
+    size_t n = lilac_port80_drain(codes, MP_ARRAY_SIZE(codes));
+    mp_obj_t list = mp_obj_new_list(0, NULL);
+    for (size_t i = 0; i < n; i++) {
+        mp_obj_list_append(list, mp_obj_new_int_from_uint(codes[i]));
+    }
+    return list;
+}
+static MP_DEFINE_CONST_FUN_OBJ_0(lilac_port80_obj, lilac_port80_fn);
+
+//| def hc_poll() -> tuple[int, int, int, bytes] | None:
+//|     """The pending host command as (seq, command, version, params), or
+//|     None. Answer with hc_respond() within 100 ms; otherwise native code
+//|     answers EC_RES_TIMEOUT."""
+static mp_obj_t lilac_hc_poll_fn(void) {
+    static struct lilac_hc_request req;
+    if (lilac_hc_poll(&req) != 0) {
+        return mp_const_none;
+    }
+    mp_obj_t items[4] = {
+        mp_obj_new_int_from_uint(req.seq),
+        MP_OBJ_NEW_SMALL_INT(req.command),
+        MP_OBJ_NEW_SMALL_INT(req.version),
+        mp_obj_new_bytes(req.data, req.data_len),
+    };
+    return mp_obj_new_tuple(4, items);
+}
+static MP_DEFINE_CONST_FUN_OBJ_0(lilac_hc_poll_obj, lilac_hc_poll_fn);
+
+//| def hc_respond(seq: int, result: int, data: bytes = b"") -> None:
+//|     """Answer host command `seq` with an ec_status and response data (at
+//|     most 248 bytes; error results send no data). Raises OSError(EINVAL) for
+//|     a result outside 0..0xffff or longer data, OSError(ETIMEDOUT) if native
+//|     code already answered or dropped the request."""
+static mp_obj_t lilac_hc_respond_fn(size_t n_args, const mp_obj_t *args) {
+    mp_int_t result = mp_obj_get_int(args[1]);
+    if (result < 0 || result > 0xffff) {
+        mp_raise_OSError(EINVAL);
+    }
+    mp_buffer_info_t buf = { .buf = NULL, .len = 0 };
+    if (n_args > 2) {
+        mp_get_buffer_raise(args[2], &buf, MP_BUFFER_READ);
+    }
+    if (buf.len > LILAC_HC_DATA_MAX) {
+        mp_raise_OSError(EINVAL);
+    }
+    lilac_check(lilac_hc_respond((uint32_t)mp_obj_get_int_truncated(args[0]), (uint16_t)result,
+        buf.buf, buf.len));
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lilac_hc_respond_obj, 2, 3, lilac_hc_respond_fn);
+
 static const mp_rom_map_elem_t lilac_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_lilac) },
     { MP_ROM_QSTR(MP_QSTR_inputs), MP_ROM_PTR(&lilac_inputs_obj) },
@@ -220,6 +306,10 @@ static const mp_rom_map_elem_t lilac_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_fan_set), MP_ROM_PTR(&lilac_fan_set_obj) },
     { MP_ROM_QSTR(MP_QSTR_fan_status), MP_ROM_PTR(&lilac_fan_status_obj) },
     { MP_ROM_QSTR(MP_QSTR_temp_limits), MP_ROM_PTR(&lilac_temp_limits_obj) },
+    { MP_ROM_QSTR(MP_QSTR_espi_status), MP_ROM_PTR(&lilac_espi_status_obj) },
+    { MP_ROM_QSTR(MP_QSTR_port80), MP_ROM_PTR(&lilac_port80_obj) },
+    { MP_ROM_QSTR(MP_QSTR_hc_poll), MP_ROM_PTR(&lilac_hc_poll_obj) },
+    { MP_ROM_QSTR(MP_QSTR_hc_respond), MP_ROM_PTR(&lilac_hc_respond_obj) },
 };
 static MP_DEFINE_CONST_DICT(lilac_module_globals, lilac_module_globals_table);
 

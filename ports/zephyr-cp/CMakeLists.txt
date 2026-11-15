@@ -15,6 +15,8 @@ target_sources(app PRIVATE zephyr_main.c)
 if(CONFIG_BOARD_FRAMEWORK_LILAC_DIAG)
     target_sources(app PRIVATE boards/framework/lilac_diag/diagnostic.c)
     target_sources(app PRIVATE boards/framework/lilac_diag/fan.c)
+    target_sources(app PRIVATE boards/framework/lilac_diag/espi.c)
+    target_sources(app PRIVATE boards/framework/lilac_diag/hostif.c)
 endif()
 
 # Add I2C emulator control for native_sim testing
