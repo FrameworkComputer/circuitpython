@@ -43,6 +43,8 @@ int lilac_thermal_read_quiet(uint8_t reg, uint8_t *value);
 // reaches its stock full-fan temperature.
 #define LILAC_FAN_LEASE_MS 5000
 #define LILAC_FAN_PERIOD_MS 1000
+// slp_s3_l must have been high this long before the sensors are read (image 10).
+#define LILAC_SENSOR_SETTLE_MS 500
 #define LILAC_TEMP_SENSORS 3
 #define LILAC_TEMP_INVALID INT16_MIN
 
@@ -110,6 +112,8 @@ struct lilac_hc_request {
 };
 
 void lilac_espi_status(struct lilac_espi_status *status);
+// Total codes seen and the most recent one, without draining (image 10).
+void lilac_port80_last(uint32_t *total, uint32_t *last);
 // Moves up to max buffered Port 80 codes into out, oldest first.
 size_t lilac_port80_drain(uint32_t *out, size_t max);
 // 0 and the pending request, or -EAGAIN if none is pending.

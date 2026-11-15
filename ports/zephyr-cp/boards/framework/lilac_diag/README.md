@@ -85,6 +85,13 @@ shared-memory window readable and masked-writable from Python
 (`lilac.memmap_read/memmap_write`) except the native host-command flags byte
 0x27 (EPERM; check in pure `hostif.c`).
 
+Image 10 (2026-11-15): allocation-light status calls for the S0 service
+loop (`lilac.power_names/power_state/fan_state/port80_last`, small tuples
+instead of string-keyed dicts), `lilac.heap_info()` (outer heap largest free
+block), a 512-deep Port 80 ring that keeps the newest codes, and the fan
+monitor treating the sensor rail as powered only after `slp_s3_l` has been
+high 500 ms (an I2C bus error on the first read at S0 entry before).
+
 Raw GPIO/NVM modules and busio registration are excluded; UART internals remain
 compiled for the native console. The board module contains inert pin names. No charger policy, PD,
 keyboard controller, PROCHOT or watchdog services are implemented; cooling is verified only by the

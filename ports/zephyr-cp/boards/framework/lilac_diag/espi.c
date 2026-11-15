@@ -341,6 +341,13 @@ void lilac_espi_status(struct lilac_espi_status *st) {
     k_spin_unlock(&lock, key);
 }
 
+void lilac_port80_last(uint32_t *total, uint32_t *last) {
+    k_spinlock_key_t key = k_spin_lock(&lock);
+    *total = port80.total;
+    *last = port80.last;
+    k_spin_unlock(&lock, key);
+}
+
 size_t lilac_port80_drain(uint32_t *out, size_t max) {
     k_spinlock_key_t key = k_spin_lock(&lock);
     size_t n = hostif_port80_drain(&port80, out, max);

@@ -10,6 +10,7 @@
 #include <zephyr/kernel.h>
 
 #include "boards/framework/lilac_diag/lilac_diag.h"
+#include "supervisor/port_heap.h"
 
 static void lilac_check(int ret) {
     if (ret == -EPERM) {
@@ -456,6 +457,86 @@ static mp_obj_t lilac_power_status_fn(void) {
 }
 static MP_DEFINE_CONST_FUN_OBJ_0(lilac_power_status_obj, lilac_power_status_fn);
 
+// Image 10: allocation-light status calls for the S0 service loop. The
+// dict-returning calls above build string keys at runtime (~0.7 ms and a
+// heap object each at the stock 15 MHz core clock); in S0 their churn
+// exhausted the fragmented split heap (runs 2, 3, 3b).
+
+//| def power_names() -> tuple[str, ...]:
+//|     """Power output names in power_state() bit order (call once)."""
+static mp_obj_t lilac_power_names_fn(void) {
+    mp_obj_t items[LILAC_POWER_OUTPUTS];
+    for (int i = 0; i < LILAC_POWER_OUTPUTS; i++) {
+        const char *name = lilac_power_out_name(i);
+        items[i] = mp_obj_new_str(name, strlen(name));
+    }
+    return mp_obj_new_tuple(LILAC_POWER_OUTPUTS, items);
+}
+static MP_DEFINE_CONST_FUN_OBJ_0(lilac_power_names_obj, lilac_power_names_fn);
+
+//| def power_state() -> tuple[int, int, int, int]:
+//|     """(faulted 0/1, outputs bitmask in power_names() order, inputs
+//|     bitmask pg_3v5v=1 pg_vr=2 slp_s3_l=4 slp_s5_l=8, lease_ms).
+//|     Small ints only; power_status() names the fault."""
+static mp_obj_t lilac_power_state_fn(void) {
+    struct lilac_power_status st;
+    lilac_power_status(&st);
+    mp_int_t out = 0, in = 0;
+    for (int i = 0; i < LILAC_POWER_OUTPUTS; i++) {
+        out |= (mp_int_t)(st.out[i] ? 1 : 0) << i;
+    }
+    for (int i = 0; i < LILAC_POWER_INPUTS; i++) {
+        in |= (mp_int_t)(st.in[i] ? 1 : 0) << i;
+    }
+    mp_obj_t items[4] = {
+        MP_OBJ_NEW_SMALL_INT(strcmp(st.fault, "none") != 0),
+        MP_OBJ_NEW_SMALL_INT(out),
+        MP_OBJ_NEW_SMALL_INT(in),
+        MP_OBJ_NEW_SMALL_INT(st.lease_ms),
+    };
+    return mp_obj_new_tuple(4, items);
+}
+static MP_DEFINE_CONST_FUN_OBJ_0(lilac_power_state_obj, lilac_power_state_fn);
+
+//| def fan_state() -> tuple:
+//|     """(powered, duty, rpm (-1 on tach error), reason index into
+//|     ('unpowered', 'python', 'lease', 'sensor', 'hot'), halt, then one
+//|     temperature per temp_limits() sensor, None if not read)."""
+static mp_obj_t lilac_fan_state_fn(void) {
+    struct lilac_fan_status st;
+    lilac_fan_status(&st);
+    mp_obj_t items[5 + LILAC_TEMP_SENSORS] = {
+        mp_obj_new_bool(st.powered),
+        MP_OBJ_NEW_SMALL_INT(st.duty),
+        MP_OBJ_NEW_SMALL_INT(st.rpm < 0 ? -1 : st.rpm),
+        MP_OBJ_NEW_SMALL_INT(st.reason),
+        mp_obj_new_bool(st.halt),
+    };
+    for (int i = 0; i < LILAC_TEMP_SENSORS; i++) {
+        items[5 + i] = st.temp_c[i] == LILAC_TEMP_INVALID ? mp_const_none : MP_OBJ_NEW_SMALL_INT(st.temp_c[i]);
+    }
+    return mp_obj_new_tuple(5 + LILAC_TEMP_SENSORS, items);
+}
+static MP_DEFINE_CONST_FUN_OBJ_0(lilac_fan_state_obj, lilac_fan_state_fn);
+
+//| def port80_last() -> tuple[int, int]:
+//|     """(total codes seen, most recent code) without draining."""
+static mp_obj_t lilac_port80_last_fn(void) {
+    uint32_t total, last;
+    lilac_port80_last(&total, &last);
+    mp_obj_t items[2] = { mp_obj_new_int_from_uint(total), mp_obj_new_int_from_uint(last) };
+    return mp_obj_new_tuple(2, items);
+}
+static MP_DEFINE_CONST_FUN_OBJ_0(lilac_port80_last_obj, lilac_port80_last_fn);
+
+//| def heap_info() -> int:
+//|     """Largest free block of the outer (port) heap from which the VM
+//|     heap grows, in bytes. Diagnostic."""
+static mp_obj_t lilac_heap_info_fn(void) {
+    return mp_obj_new_int_from_uint(port_heap_get_largest_free_size());
+}
+static MP_DEFINE_CONST_FUN_OBJ_0(lilac_heap_info_obj, lilac_heap_info_fn);
+
 static const mp_rom_map_elem_t lilac_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_lilac) },
     { MP_ROM_QSTR(MP_QSTR_inputs), MP_ROM_PTR(&lilac_inputs_obj) },
@@ -483,6 +564,11 @@ static const mp_rom_map_elem_t lilac_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_adc_read), MP_ROM_PTR(&lilac_adc_read_obj) },
     { MP_ROM_QSTR(MP_QSTR_memmap_read), MP_ROM_PTR(&lilac_memmap_read_obj) },
     { MP_ROM_QSTR(MP_QSTR_memmap_write), MP_ROM_PTR(&lilac_memmap_write_obj) },
+    { MP_ROM_QSTR(MP_QSTR_power_names), MP_ROM_PTR(&lilac_power_names_obj) },
+    { MP_ROM_QSTR(MP_QSTR_power_state), MP_ROM_PTR(&lilac_power_state_obj) },
+    { MP_ROM_QSTR(MP_QSTR_fan_state), MP_ROM_PTR(&lilac_fan_state_obj) },
+    { MP_ROM_QSTR(MP_QSTR_port80_last), MP_ROM_PTR(&lilac_port80_last_obj) },
+    { MP_ROM_QSTR(MP_QSTR_heap_info), MP_ROM_PTR(&lilac_heap_info_obj) },
 };
 static MP_DEFINE_CONST_DICT(lilac_module_globals, lilac_module_globals_table);
 

@@ -210,7 +210,8 @@ void hostif_port80_push(struct hostif_port80 *p, uint32_t code) {
     p->last = code;
     if (p->count == HOSTIF_PORT80_DEPTH) {
         p->dropped++;
-        return;
+        p->head = (uint16_t)((p->head + 1) % HOSTIF_PORT80_DEPTH);
+        p->count--;
     }
     p->codes[(p->head + p->count) % HOSTIF_PORT80_DEPTH] = code;
     p->count++;

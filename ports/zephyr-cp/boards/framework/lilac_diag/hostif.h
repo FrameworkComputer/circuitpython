@@ -95,8 +95,11 @@ struct hostif_acpi {
 int hostif_acpi_byte(struct hostif_acpi *acpi, bool is_cmd, uint8_t value,
     const uint8_t *memmap, uint8_t *result);
 
-// Port 80 codes, oldest first; overflow drops the newest and counts it.
-#define HOSTIF_PORT80_DEPTH 64
+// Port 80 codes, oldest first. Image 10: 512 deep and overflow drops the
+// OLDEST (counted), so after a burst the most recent codes are kept; Python
+// drains after a run instead of during it (AMD sends 32-bit codes in bursts
+// of hundreds per second; run 2b dropped 1139 of 2167 with 64 entries).
+#define HOSTIF_PORT80_DEPTH 512
 struct hostif_port80 {
     uint32_t codes[HOSTIF_PORT80_DEPTH];
     uint16_t head, count;

@@ -51,9 +51,22 @@ const struct lilac_temp_limit *lilac_temp_limits(size_t *count) {
 
 static const char *const reason_names[] = { "unpowered", "python", "lease", "sensor", "hot" };
 
+static int64_t powered_since = -1;  // first update that saw slp_s3_l high
+
 static void fan_update(struct k_work *work) {
     int16_t temp[LILAC_TEMP_SENSORS];
-    bool powered = lilac_sensor_power() == 1;
+    // Image 10: the fan/sensor rail counts as powered only once slp_s3_l has
+    // been seen high for LILAC_SENSOR_SETTLE_MS; a read right after it rose
+    // failed with an I2C bus error (runs 2b, 3, 3b). Until then: duty 0 and
+    // no sensor access, as while unpowered.
+    int64_t t0 = k_uptime_get();
+    bool rail = lilac_sensor_power() == 1;
+    if (!rail) {
+        powered_since = -1;
+    } else if (powered_since < 0) {
+        powered_since = t0;
+    }
+    bool powered = rail && t0 - powered_since >= LILAC_SENSOR_SETTLE_MS;
     bool failed = false, hot = false, halt_reached = false, below_release = true;
 
     for (size_t i = 0; i < ARRAY_SIZE(limits); i++) {
@@ -136,7 +149,9 @@ static void fan_update(struct k_work *work) {
         // There is no AP power path in this image, so nothing to shut down.
         LOG_ERR("thermal halt %s", state.halt ? "reached: shutdown required" : "released");
     }
-    k_work_schedule(&fan_work, K_MSEC(LILAC_FAN_PERIOD_MS));
+    // While settling, come back as soon as the rail may be used.
+    k_work_schedule(&fan_work, K_MSEC(rail && !powered
+        ? (int32_t)(LILAC_SENSOR_SETTLE_MS - (t0 - powered_since)) : LILAC_FAN_PERIOD_MS));
 }
 
 int lilac_fan_set(int percent) {
