@@ -674,9 +674,16 @@ def zephyr_dts_to_cp_board(board_id, portdir, builddir, zephyrbuilddir, mpconfig
                 config_bt_found = True
                 break
 
-    runners = zephyrbuilddir / "runners.yaml"
-    runners = yaml.safe_load(runners.read_text())
-    zephyr_board_dir = pathlib.Path(runners["config"]["board_dir"])
+    # Boards without a flash/debug runner do not generate runners.yaml.
+    # CMakeCache still records the board directory for these build-only targets.
+    cache_path = zephyrbuilddir.parent / "CMakeCache.txt"
+    cache = cache_path.read_text() if cache_path.exists() else ""
+    board_dir_match = re.search(r"^BOARD_DIR:PATH=(.+)$", cache, re.MULTILINE)
+    if board_dir_match:
+        zephyr_board_dir = pathlib.Path(board_dir_match.group(1))
+    else:
+        runners = yaml.safe_load((zephyrbuilddir / "runners.yaml").read_text())
+        zephyr_board_dir = pathlib.Path(runners["config"]["board_dir"])
     board_yaml = zephyr_board_dir / "board.yml"
     board_yaml = yaml.safe_load(board_yaml.read_text())
     if "board" not in board_yaml and "boards" in board_yaml:

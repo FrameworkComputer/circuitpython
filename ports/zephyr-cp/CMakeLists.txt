@@ -8,6 +8,7 @@ set(ZEPHYR_EXTRA_MODULES ${CMAKE_CURRENT_SOURCE_DIR}/modules/iobroker)
 
 find_package(Zephyr REQUIRED HINTS lib/zephyr)
 project(circuitpython)
+include(ExternalProject)
 
 target_sources(app PRIVATE zephyr_main.c)
 
@@ -38,6 +39,9 @@ if(DEFINED CMAKE_C_COMPILER_TARGET)
   set(target_flag "--target=${CMAKE_C_COMPILER_TARGET}")
 endif()
 
+# Compiler options can contain target-dependent expressions (notably LTO).
+# ExternalProject's custom command has no binary target context of its own.
+string(REPLACE "$<TARGET_PROPERTY:LTO>" "$<TARGET_PROPERTY:app,LTO>" options "${options}")
 set(external_project_cflags
   "${target_flag} ${includes} ${definitions} ${options} ${system_includes}"
   )

@@ -28,7 +28,6 @@ manifest:
           - hal_gigadevice
           - hal_intel
           - hal_microchip
-          - hal_nuvoton
           - hal_openisa
           - hal_quicklogic
           - hal_realtek

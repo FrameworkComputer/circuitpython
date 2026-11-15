@@ -1,0 +1,6 @@
+board:
+  name: framework_npcx993
+  full_name: Framework NPCX993 experimental UART target
+  vendor: framework
+  socs:
+    - name: npcx9m3f

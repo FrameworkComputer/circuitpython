@@ -367,12 +367,15 @@ async def build_circuitpython():  # noqa: C901
     circuitpython_flags = ["-DCIRCUITPY"]
     port_flags = []
     enable_mpy_native = False
-    full_build = True
     usb_host = False
     zephyr_board = cmake_args["BOARD"]
     board = cmake_args["BOARD_ALIAS"]
     if not board:
         board = zephyr_board
+    mpconfigboard_fn, board_config = board_tools.load_mpconfigboard(portdir, board)
+    mpconfigboard = {"USB_VID": 0x1209, "USB_PID": 0x000C, "USB_INTERFACE_NAME": "CircuitPython"}
+    mpconfigboard.update(board_config)
+    full_build = mpconfigboard.get("CIRCUITPY_FULL_BUILD", True)
     # The environment wins, so the Makefile can switch languages without a reconfigure.
     translation = os.environ.get("TRANSLATION") or cmake_args["TRANSLATION"] or "en_US"
     for module in ALWAYS_ON_MODULES:
@@ -408,11 +411,6 @@ async def build_circuitpython():  # noqa: C901
     genhdr = builddir / "genhdr"
     genhdr.mkdir(exist_ok=True, parents=True)
     version_header = genhdr / "mpversion.h"
-    mpconfigboard_fn = board_tools.find_mpconfigboard(portdir, board)
-    mpconfigboard = {"USB_VID": 0x1209, "USB_PID": 0x000C, "USB_INTERFACE_NAME": "CircuitPython"}
-    if mpconfigboard_fn is not None and mpconfigboard_fn.exists():
-        with mpconfigboard_fn.open("rb") as f:
-            mpconfigboard.update(tomllib.load(f))
     async with asyncio.TaskGroup() as tg:
         tg.create_task(
             cpbuild.run_command(
@@ -687,7 +685,7 @@ async def build_circuitpython():  # noqa: C901
         autogen_board_info_fn.write_text(tomlkit.dumps(autogen_board_info))
 
     for mpflag in MPCONFIG_FLAGS:
-        enabled = mpflag in DEFAULT_MODULES
+        enabled = mpflag in enabled_modules
         circuitpython_flags.append(f"-DCIRCUITPY_{mpflag.upper()}={1 if enabled else 0}")
 
     # ulab is on by default and boards that cannot spare the flash set

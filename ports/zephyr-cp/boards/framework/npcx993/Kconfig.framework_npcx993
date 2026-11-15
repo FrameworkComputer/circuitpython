@@ -1,0 +1,2 @@
+config BOARD_FRAMEWORK_NPCX993
+    select SOC_NPCX9M3F

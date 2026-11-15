@@ -14,6 +14,7 @@ WEST_SHIELD_ARGS := $(shell SHIELD_ORIGIN="$(origin SHIELD)" SHIELDS_ORIGIN="$(o
 endif
 
 WEST_CMAKE_ARGS := -DZEPHYR_BOARD_ALIASES=$(CURDIR)/boards/board_aliases.cmake
+WEST_CMAKE_ARGS += -DBOARD_ROOT=$(CURDIR)
 
 # Board files live in the board's own folder as board.overlay / board.conf. Zephyr only auto-applies
 # boards/<name>.overlay and boards/<name>.conf named after the RESOLVED Zephyr board, so it finds
