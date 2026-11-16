@@ -54,6 +54,10 @@ static const struct pin in_pins[PWR_IN_COUNT] = {
 // The diagnostic table configures it low at boot and on every reload.
 static const struct pin bkoff_pin = PIN(gpioc, 7);
 static bool periph_on;
+// GPA7 powers the fingerprint/power-button LED, separately from PWM5/GPB7.
+// Stock peripheral_power_startup/shutdown raises/lowers gpio_ec_fp_en.
+static const struct pin fp_power_pin = PIN(gpioa, 7);
+static bool fp_power_on;
 
 static struct k_spinlock lock;
 static struct powerctl pc;
@@ -65,6 +69,17 @@ static void apply(const struct powerctl_write *w, size_t n) {
         if (w[i].out == PWR_SYSON && !w[i].level) { lilac_keyboard_power(false); }
         const struct pin *p = &out_pins[w[i].out];
         if (gpio_pin_set_raw(p->port, p->pin, w[i].level) != 0) {
+            write_errors++;
+        }
+    }
+    // Runs after every write batch (also empty timer batches), so enable
+    // follows an accepted SYSON request immediately and errors retry at 1 ms.
+    // Explicit power-off and reload apply their off batch before returning.
+    bool enabled = powerctl_startup_peripherals(&pc);
+    if (enabled != fp_power_on) {
+        if (gpio_pin_set_raw(fp_power_pin.port, fp_power_pin.pin, enabled) == 0) {
+            fp_power_on = enabled;
+        } else {
             write_errors++;
         }
     }
@@ -196,6 +211,7 @@ void lilac_power_status(struct lilac_power_status *st) {
     }
     st->vw_ready = pc.vw_ready;
     st->backlight = periph_on;
+    st->fp_power = fp_power_on;
     st->lease_ms = powerctl_any_on(&pc) ? (int32_t)(pc.lease_until - now) : -1;
     st->ticks = ticks;
     st->write_errors = write_errors;

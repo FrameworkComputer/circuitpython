@@ -485,6 +485,7 @@ static mp_obj_t lilac_power_status_fn(void) {
     lilac_store(dict, "inputs", inputs);
     lilac_store(dict, "vw_ready", mp_obj_new_bool(st.vw_ready));
     lilac_store(dict, "backlight", mp_obj_new_bool(st.backlight));
+    lilac_store(dict, "fp_power", mp_obj_new_bool(st.fp_power));
     lilac_store(dict, "lease_ms", mp_obj_new_int(st.lease_ms));
     lilac_store(dict, "ticks", mp_obj_new_int_from_uint(st.ticks));
     lilac_store(dict, "write_errors", mp_obj_new_int_from_uint(st.write_errors));

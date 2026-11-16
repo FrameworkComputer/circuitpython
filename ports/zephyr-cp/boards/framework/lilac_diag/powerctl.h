@@ -121,6 +121,9 @@ bool powerctl_any_on(const struct powerctl *pc);
 // backlight enable ec_bkoff_l / gpio_sm_panel_bken_ec). Shutdown passes
 // through suspend, so any power-down or fault turns them off.
 bool powerctl_s0_peripherals(const struct powerctl *pc);
+// Stock chipset startup/shutdown peripherals: on from S5->S3 until S3->S5,
+// including S3 suspend. Native fault/off/reload also removes their power.
+bool powerctl_startup_peripherals(const struct powerctl *pc);
 const char *powerctl_out_name(int out);
 const char *powerctl_fault_name(int fault);
 int powerctl_out_index(const char *name);
