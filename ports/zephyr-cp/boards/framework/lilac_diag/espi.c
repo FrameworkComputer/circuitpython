@@ -21,6 +21,7 @@
 #include <soc.h>
 
 #include "hostif.h"
+#include "keyboard.h"
 #include "lilac_diag.h"
 
 LOG_MODULE_REGISTER(lilac_espi, LOG_LEVEL_INF);
@@ -184,8 +185,8 @@ static void peripheral_handler(const struct device *dev, struct espi_callback *c
             handle_host_command(event.evt_data);
             break;
         case ESPI_PERIPHERAL_8042_KBC:
-            // No keyboard controller yet: the driver has consumed the byte.
-            kbc_bytes++;
+            if (((struct espi_evt_data_kbc *)&event.evt_data)->evt == HOST_KBC_EVT_IBF) { kbc_bytes++; }
+            lilac_keyboard_event(event.evt_data);
             break;
         default:
             break;
@@ -200,6 +201,7 @@ static void bus_handler(const struct device *dev, struct espi_callback *cb, stru
         espi_rst = event.evt_data ? 1 : 0;
         espi_resets++;
         if (!event.evt_data) {
+            lilac_keyboard_reset(false);
             vw_ready = false;
             hostif_slot_abort(&slot);
         }
@@ -213,6 +215,7 @@ static void bus_handler(const struct device *dev, struct espi_callback *cb, stru
             pltrst_edges++;
         }
         pltrst = event.evt_data ? 1 : 0;
+        lilac_keyboard_reset(pltrst);
         if (!event.evt_data) {
             hostif_slot_abort(&slot);
         }

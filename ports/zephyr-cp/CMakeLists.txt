@@ -20,6 +20,8 @@ if(CONFIG_BOARD_FRAMEWORK_LILAC_DIAG)
     target_sources(app PRIVATE boards/framework/lilac_diag/power.c)
     target_sources(app PRIVATE boards/framework/lilac_diag/powerctl.c)
     target_sources(app PRIVATE boards/framework/lilac_diag/adc.c)
+    target_sources(app PRIVATE boards/framework/lilac_diag/kbc.c)
+    target_sources(app PRIVATE boards/framework/lilac_diag/keyboard.c)
 endif()
 
 # Add I2C emulator control for native_sim testing

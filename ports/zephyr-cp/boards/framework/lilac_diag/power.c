@@ -15,6 +15,7 @@
 
 #include "lilac_diag.h"
 #include "powerctl.h"
+#include "keyboard.h"
 
 LOG_MODULE_REGISTER(lilac_power, LOG_LEVEL_INF);
 
@@ -61,6 +62,7 @@ static uint32_t ticks, write_errors, input_errors;
 
 static void apply(const struct powerctl_write *w, size_t n) {
     for (size_t i = 0; i < n; i++) {
+        if (w[i].out == PWR_SYSON && !w[i].level) { lilac_keyboard_power(false); }
         const struct pin *p = &out_pins[w[i].out];
         if (gpio_pin_set_raw(p->port, p->pin, w[i].level) != 0) {
             write_errors++;
@@ -94,6 +96,7 @@ static void timer_handler(struct k_timer *t) {
     sample(now);
     size_t n = powerctl_tick(&pc, now, w);
     apply(w, n);
+    lilac_keyboard_power(pc.armed && !pc.fault && pc.out[PWR_SYSON]);
     bool periph = powerctl_s0_peripherals(&pc);
     if (periph != periph_on) {
         if (gpio_pin_set_raw(bkoff_pin.port, bkoff_pin.pin, periph) == 0) {

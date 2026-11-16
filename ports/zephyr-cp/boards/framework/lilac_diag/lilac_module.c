@@ -11,6 +11,7 @@
 
 #include "boards/framework/lilac_diag/lilac_diag.h"
 #include "supervisor/port_heap.h"
+#include "boards/framework/lilac_diag/keyboard.h"
 
 //| def power_led_set(percent: int) -> None:
 //|     """Set white LED brightness, 0..100 percent; off outside S0."""
@@ -557,7 +558,25 @@ static mp_obj_t lilac_heap_info_fn(void) {
 }
 static MP_DEFINE_CONST_FUN_OBJ_0(lilac_heap_info_obj, lilac_heap_info_fn);
 
+// keyboard_state: rx, tx, keys, dropped, command byte, enabled, unknown,
+// matrix events, deck state (0 off/1 disconnected/2 turning on/3 on), mV, ID, powered.
+static mp_obj_t keyboard_state(void) {
+    int32_t values[12]; mp_obj_t items[12];
+    lilac_keyboard_state(values);
+    for (int i = 0; i < 12; i++) { items[i] = mp_obj_new_int(values[i]); }
+    return mp_obj_new_tuple(12, items);
+}
+static MP_DEFINE_CONST_FUN_OBJ_0(keyboard_state_obj, keyboard_state);
+static mp_obj_t keyboard_map(size_t n, const mp_obj_t *args) {
+    unsigned row = mp_obj_get_int(args[0]), col = mp_obj_get_int(args[1]);
+    uint16_t code = n == 3 ? mp_obj_get_int(args[2]) : 0;
+    return mp_obj_new_int(lilac_keyboard_map(row, col, n == 3, code));
+}
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(keyboard_map_obj, 2, 3, keyboard_map);
+
 static const mp_rom_map_elem_t lilac_module_globals_table[] = {
+    { MP_ROM_QSTR(MP_QSTR_keyboard_state), MP_ROM_PTR(&keyboard_state_obj) },
+    { MP_ROM_QSTR(MP_QSTR_keyboard_map), MP_ROM_PTR(&keyboard_map_obj) },
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_lilac) },
     { MP_ROM_QSTR(MP_QSTR_inputs), MP_ROM_PTR(&lilac_inputs_obj) },
     { MP_ROM_QSTR(MP_QSTR_input), MP_ROM_PTR(&lilac_input_obj) },
@@ -574,8 +593,8 @@ static const mp_rom_map_elem_t lilac_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_port80), MP_ROM_PTR(&lilac_port80_obj) },
     { MP_ROM_QSTR(MP_QSTR_hc_poll), MP_ROM_PTR(&lilac_hc_poll_obj) },
     { MP_ROM_QSTR(MP_QSTR_hc_respond), MP_ROM_PTR(&lilac_hc_respond_obj) },
-    { MP_ROM_QSTR(MP_QSTR_power_set), MP_ROM_PTR(&lilac_power_set_obj) },
     { MP_ROM_QSTR(MP_QSTR_power_led_set), MP_ROM_PTR(&lilac_power_led_set_obj) },
+    { MP_ROM_QSTR(MP_QSTR_power_set), MP_ROM_PTR(&lilac_power_set_obj) },
     { MP_ROM_QSTR(MP_QSTR_power_pbtn_pulse), MP_ROM_PTR(&lilac_power_pbtn_pulse_obj) },
     { MP_ROM_QSTR(MP_QSTR_power_heartbeat), MP_ROM_PTR(&lilac_power_heartbeat_obj) },
     { MP_ROM_QSTR(MP_QSTR_power_off), MP_ROM_PTR(&lilac_power_off_obj) },

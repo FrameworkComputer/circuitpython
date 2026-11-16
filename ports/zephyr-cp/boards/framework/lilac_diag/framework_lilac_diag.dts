@@ -158,3 +158,17 @@
     pinctrl-0 = <&pwm5_gpb7>;
     pinctrl-names = "default";
 };
+// Stock laptop13 16x8 matrix and scan timing (not the Chromebook default).
+&kbd {
+    status = "okay";
+    row-size = <8>;
+    col-size = <16>;
+    settle-time-us = <80>;
+    debounce-down-ms = <20>;
+    debounce-up-ms = <30>;
+    poll-period-us = <3000>;
+    actual-key-mask = <0xff 0xff 0xff 0x03 0xff 0xff 0xff 0xff 0xff 0x03 0xff 0xff 0x03 0xff 0xff 0xef>;
+    pinctrl-0 = <&ksi0_gp31 &ksi1_gp30 &ksi2_gp27 &ksi3_gp26 &ksi4_gp25 &ksi5_gp24 &ksi6_gp23 &ksi7_gp22
+        &kso00_gp21 &kso01_gp20 &kso02_gp17 &kso03_gp16 &kso04_gp15 &kso05_gp14 &kso06_gp13 &kso07_gp12 &kso08_gp11 &kso09_gp10 &kso10_gp07 &kso11_gp06 &kso12_gp05 &kso13_gp04 &kso14_gp82 &kso15_gp83>;
+    pinctrl-names = "default";
+};
