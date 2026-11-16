@@ -160,6 +160,7 @@ struct lilac_power_status {
     uint8_t out[LILAC_POWER_OUTPUTS];  // powerctl.h order
     uint8_t in[LILAC_POWER_INPUTS];    // alw_pg, vr_pg, slp_s3_l, slp_s5_l
     bool vw_ready;
+    bool backlight;          // image 12: ec_bkoff_l driven high (S0 peripherals)
     int32_t lease_ms;        // remaining Python lease, -1 with all rails off
     uint32_t ticks, write_errors, input_errors;
 };

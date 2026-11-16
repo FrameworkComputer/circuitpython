@@ -90,6 +90,10 @@ void powerctl_init(struct powerctl *pc, bool armed, int64_t now) {
     pc->hang_due = -1;
 }
 
+bool powerctl_s0_peripherals(const struct powerctl *pc) {
+    return pc->out[PWR_SYS_PWRGD] && pc->in[PWR_IN_SLP_S3];
+}
+
 bool powerctl_any_on(const struct powerctl *pc) {
     for (int i = 0; i < PWR_OUT_COUNT; i++) {
         if (pc->out[i]) {

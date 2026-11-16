@@ -225,6 +225,7 @@ static mp_obj_t lilac_espi_status_fn(void) {
     mp_obj_t dict = mp_obj_new_dict(26);
     lilac_store(dict, "configured", MP_OBJ_NEW_SMALL_INT(st.config_result));
     lilac_store(dict, "vw_ready", mp_obj_new_bool(st.vw_ready));
+    lilac_store(dict, "backlight", mp_obj_new_bool(st.backlight));
     lilac_store(dict, "espi_rst", st.espi_rst < 0 ? mp_const_none : MP_OBJ_NEW_SMALL_INT(st.espi_rst));
     lilac_store(dict, "pltrst", st.pltrst < 0 ? mp_const_none : MP_OBJ_NEW_SMALL_INT(st.pltrst));
     static const struct { const char *name; size_t offset; } counters[] = {
@@ -476,7 +477,8 @@ static MP_DEFINE_CONST_FUN_OBJ_0(lilac_power_names_obj, lilac_power_names_fn);
 
 //| def power_state() -> tuple[int, int, int, int]:
 //|     """(faulted 0/1, outputs bitmask in power_names() order, inputs
-//|     bitmask pg_3v5v=1 pg_vr=2 slp_s3_l=4 slp_s5_l=8, lease_ms).
+//|     bitmask pg_3v5v=1 pg_vr=2 slp_s3_l=4 slp_s5_l=8, plus 16 while the
+//|     S0 peripherals (panel backlight enable) are on, lease_ms).
 //|     Small ints only; power_status() names the fault."""
 static mp_obj_t lilac_power_state_fn(void) {
     struct lilac_power_status st;
@@ -487,6 +489,9 @@ static mp_obj_t lilac_power_state_fn(void) {
     }
     for (int i = 0; i < LILAC_POWER_INPUTS; i++) {
         in |= (mp_int_t)(st.in[i] ? 1 : 0) << i;
+    }
+    if (st.backlight) {
+        in |= 1 << LILAC_POWER_INPUTS;
     }
     mp_obj_t items[4] = {
         MP_OBJ_NEW_SMALL_INT(strcmp(st.fault, "none") != 0),

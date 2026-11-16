@@ -47,6 +47,13 @@ static const struct pin in_pins[PWR_IN_COUNT] = {
     [PWR_IN_SLP_S5] = PIN(gpio9, 5),   // slp_s5_l
 };
 
+// Image 12: S0 peripheral outputs following powerctl_s0_peripherals(), as
+// stock's chipset resume/suspend hooks. ec_bkoff_l (GPC7) is the panel
+// backlight enable (stock gpio_sm_panel_bken_ec): high = backlight allowed.
+// The diagnostic table configures it low at boot and on every reload.
+static const struct pin bkoff_pin = PIN(gpioc, 7);
+static bool periph_on;
+
 static struct k_spinlock lock;
 static struct powerctl pc;
 static struct k_timer timer;
@@ -87,6 +94,14 @@ static void timer_handler(struct k_timer *t) {
     sample(now);
     size_t n = powerctl_tick(&pc, now, w);
     apply(w, n);
+    bool periph = powerctl_s0_peripherals(&pc);
+    if (periph != periph_on) {
+        if (gpio_pin_set_raw(bkoff_pin.port, bkoff_pin.pin, periph) == 0) {
+            periph_on = periph;  // on error: retried next tick
+        } else {
+            write_errors++;
+        }
+    }
     ticks++;
     enum powerctl_fault after = pc.fault;
     k_spin_unlock(&lock, key);
@@ -177,6 +192,7 @@ void lilac_power_status(struct lilac_power_status *st) {
         st->in[i] = pc.in[i];
     }
     st->vw_ready = pc.vw_ready;
+    st->backlight = periph_on;
     st->lease_ms = powerctl_any_on(&pc) ? (int32_t)(pc.lease_until - now) : -1;
     st->ticks = ticks;
     st->write_errors = write_errors;

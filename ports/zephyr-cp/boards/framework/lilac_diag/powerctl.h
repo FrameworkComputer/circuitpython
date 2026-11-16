@@ -114,6 +114,13 @@ int powerctl_clear_fault(struct powerctl *pc);
 size_t powerctl_tick(struct powerctl *pc, int64_t now, struct powerctl_write *w);
 
 bool powerctl_any_on(const struct powerctl *pc);
+
+// S0 peripherals (image 12): true while SYS_PWRGD is asserted and SLP_S3#
+// is high, i.e. from stock HOOK_CHIPSET_RESUME to HOOK_CHIPSET_SUSPEND
+// (lilac/src/power_sequence.c peripheral_power_resume/suspend: the panel
+// backlight enable ec_bkoff_l / gpio_sm_panel_bken_ec). Shutdown passes
+// through suspend, so any power-down or fault turns them off.
+bool powerctl_s0_peripherals(const struct powerctl *pc);
 const char *powerctl_out_name(int out);
 const char *powerctl_fault_name(int fault);
 int powerctl_out_index(const char *name);

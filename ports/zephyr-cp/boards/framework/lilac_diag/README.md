@@ -92,6 +92,13 @@ block), a 512-deep Port 80 ring that keeps the newest codes, and the fan
 monitor treating the sensor rail as powered only after `slp_s3_l` has been
 high 500 ms (an I2C bus error on the first read at S0 entry before).
 
+Image 12 (2026-11-16): S0 peripherals as stock's chipset resume/suspend
+hooks — `ec_bkoff_l` (GPC7, panel backlight enable, stock
+`gpio_sm_panel_bken_ec`) is driven high while SYS_PWRGD is asserted and
+`slp_s3_l` is high (`powerctl_s0_peripherals()`, applied from the 1 ms tick),
+low otherwise; reported as `backlight` in `power_status()` and bit 16 of
+`power_state()`'s inputs. `ec_mute_l` stays an input as in stock Lilac.
+
 Raw GPIO/NVM modules and busio registration are excluded; UART internals remain
 compiled for the native console. The board module contains inert pin names. No charger policy, PD,
 keyboard controller, PROCHOT or watchdog services are implemented; cooling is verified only by the
