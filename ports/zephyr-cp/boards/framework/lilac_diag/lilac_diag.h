@@ -176,3 +176,6 @@ void lilac_power_reload(void);
 int lilac_power_clear_fault(void);
 void lilac_power_status(struct lilac_power_status *status);
 const char *lilac_power_out_name(int out);
+
+// White power LED brightness (0..100), gated off outside native S0.
+int lilac_power_led_set(int percent);

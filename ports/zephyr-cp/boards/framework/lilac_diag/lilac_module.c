@@ -12,6 +12,21 @@
 #include "boards/framework/lilac_diag/lilac_diag.h"
 #include "supervisor/port_heap.h"
 
+//| def power_led_set(percent: int) -> None:
+//|     """Set white LED brightness, 0..100 percent; off outside S0."""
+static mp_obj_t lilac_power_led_set_fn(mp_obj_t percent) {
+    mp_int_t value = mp_obj_get_int(percent);
+    if (value < 0 || value > 100) {
+        mp_raise_OSError(EINVAL);
+    }
+    int ret = lilac_power_led_set(value);
+    if (ret < 0) {
+        mp_raise_OSError(-ret);
+    }
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_1(lilac_power_led_set_obj, lilac_power_led_set_fn);
+
 static void lilac_check(int ret) {
     if (ret == -EPERM) {
         mp_raise_ValueError(MP_ERROR_TEXT("register not in allowlist"));
@@ -560,6 +575,7 @@ static const mp_rom_map_elem_t lilac_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_hc_poll), MP_ROM_PTR(&lilac_hc_poll_obj) },
     { MP_ROM_QSTR(MP_QSTR_hc_respond), MP_ROM_PTR(&lilac_hc_respond_obj) },
     { MP_ROM_QSTR(MP_QSTR_power_set), MP_ROM_PTR(&lilac_power_set_obj) },
+    { MP_ROM_QSTR(MP_QSTR_power_led_set), MP_ROM_PTR(&lilac_power_led_set_obj) },
     { MP_ROM_QSTR(MP_QSTR_power_pbtn_pulse), MP_ROM_PTR(&lilac_power_pbtn_pulse_obj) },
     { MP_ROM_QSTR(MP_QSTR_power_heartbeat), MP_ROM_PTR(&lilac_power_heartbeat_obj) },
     { MP_ROM_QSTR(MP_QSTR_power_off), MP_ROM_PTR(&lilac_power_off_obj) },

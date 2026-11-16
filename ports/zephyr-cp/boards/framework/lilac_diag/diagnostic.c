@@ -122,6 +122,34 @@ static void lilac_heartbeat(struct k_work *work) {
         : LILAC_HEARTBEAT_PERIOD_MS - LILAC_HEARTBEAT_ON_MS));
 }
 
+// Python chooses brightness; native S0 gating survives Python failure.
+static const struct pwm_dt_spec led_power = PWM_DT_SPEC_GET(DT_NODELABEL(pwm_led_power));
+static struct k_work_delayable power_led_work;
+static atomic_t power_led_percent = ATOMIC_INIT(55);
+
+int lilac_power_led_set(int percent) {
+    if (percent < 0 || percent > 100) {
+        return -EINVAL;
+    }
+    if (!pwm_is_ready_dt(&led_power)) {
+        return -ENODEV;
+    }
+    atomic_set(&power_led_percent, percent);
+    return 0;
+}
+
+static void power_led_update(struct k_work *work) {
+    struct lilac_power_status st;
+    lilac_power_status(&st);
+    // Same native S0 condition as the panel: SYS_PWRGD and SLP_S3#.
+    uint32_t percent = st.backlight ? atomic_get(&power_led_percent) : 0;
+    int ret = pwm_set_pulse_dt(&led_power, led_power.period * percent / 100);
+    if (ret != 0) {
+        LOG_ERR("power LED PWM write failed: %d", ret);
+    }
+    k_work_schedule(&power_led_work, K_MSEC(20));
+}
+
 static void lilac_heartbeat_start(void) {
     if (!pwm_is_ready_dt(&led_green)) {
         LOG_WRN("heartbeat PWM not ready");
@@ -308,6 +336,10 @@ void lilac_diagnostic_reset(void) {
     // Rails still up after a Python reload go off in stock order, latched,
     // before the table below drives every output low anyway.
     lilac_power_reload();
+    atomic_set(&power_led_percent, 55);
+    if (pwm_is_ready_dt(&led_power)) {
+        pwm_set_pulse_dt(&led_power, 0);
+    }
     for (size_t i = 0; i < ARRAY_SIZE(pins); i++) {
         if (!device_is_ready(pins[i].port) ||
             gpio_pin_configure(pins[i].port, pins[i].pin, pins[i].flags) != 0) {
@@ -329,5 +361,7 @@ void lilac_diagnostic_reset(void) {
         lilac_diagnostic_report();
         lilac_heartbeat_start();
         lilac_fan_start();
+        k_work_init_delayable(&power_led_work, power_led_update);
+        k_work_schedule(&power_led_work, K_NO_WAIT);
     }
 }

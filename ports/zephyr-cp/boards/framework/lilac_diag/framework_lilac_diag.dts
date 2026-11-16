@@ -19,6 +19,9 @@
     // Green battery LED, as stock laptop13/led_pins.dtsi. Native heartbeat only.
     lilac-leds {
         compatible = "pwm-leds";
+        pwm_led_power: led-power {
+            pwms = <&pwm5 0 PWM_HZ(324) PWM_POLARITY_NORMAL>;
+        };
         pwm_led_green: led-green {
             pwms = <&pwm4 0 PWM_HZ(324) PWM_POLARITY_NORMAL>;
         };
@@ -146,4 +149,12 @@
             reg = <0x41000 0x3f000>;
         };
     };
+};
+
+// Stock laptop13 white fingerprint/power LED: PWM5, GPB7, LFCLK.
+&pwm5 {
+    status = "okay";
+    clock-bus = "NPCX_CLOCK_BUS_LFCLK";
+    pinctrl-0 = <&pwm5_gpb7>;
+    pinctrl-names = "default";
 };
