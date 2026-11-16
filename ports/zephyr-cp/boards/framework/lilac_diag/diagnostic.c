@@ -27,8 +27,8 @@ static const struct lilac_pin pins[] = {
     { DEVICE_DT_GET(DT_NODELABEL(gpio7)), 0, GPIO_OUTPUT_LOW }, // sys_pwrgd_ec
     { DEVICE_DT_GET(DT_NODELABEL(gpio6)), 2, GPIO_OUTPUT_LOW }, // vr_on
     { DEVICE_DT_GET(DT_NODELABEL(gpio6)), 3, GPIO_OUTPUT_LOW }, // susp_l
-    { DEVICE_DT_GET(DT_NODELABEL(gpio4)), 0, GPIO_OUTPUT_HIGH }, // left_side: battery LED select, heartbeat
-    { DEVICE_DT_GET(DT_NODELABEL(gpiod)), 3, GPIO_OUTPUT_HIGH }, // right_side: battery LED select, heartbeat
+    { DEVICE_DT_GET(DT_NODELABEL(gpio4)), 0, GPIO_OUTPUT_LOW }, // left_side: battery LED select
+    { DEVICE_DT_GET(DT_NODELABEL(gpiod)), 3, GPIO_OUTPUT_LOW }, // right_side: battery LED select
     { DEVICE_DT_GET(DT_NODELABEL(gpioa)), 6, GPIO_OUTPUT_LOW }, // syson
     { DEVICE_DT_GET(DT_NODELABEL(gpio0)), 3, GPIO_OUTPUT_LOW }, // tp_board_id_pug
     { DEVICE_DT_GET(DT_NODELABEL(gpiob)), 1, GPIO_OUTPUT_LOW }, // cap_led
@@ -79,7 +79,6 @@ static const struct lilac_input inputs[] = {
 
 // One-time report after the first setup: pad levels as the EC reads them, in
 // table order. A pad driven low that reads high indicates contention.
-static void lilac_heartbeat_start(void);
 
 static void lilac_diagnostic_report(void) {
     char levels[ARRAY_SIZE(pins) + 1];
@@ -100,26 +99,6 @@ static void lilac_diagnostic_report(void) {
         printk(" %s=%d", inputs[i].name, gpio_pin_get_raw(inputs[i].port, inputs[i].pin));
     }
     printk("\n");
-}
-
-// Battery LED heartbeat: green channel at the stock green level (16 %) for
-// 100 ms every 2 s, on both side LEDs (selects driven high above). Runs on
-// the system work queue, so it shows the kernel is alive, not Python.
-#define LILAC_HEARTBEAT_PERIOD_MS 2000
-#define LILAC_HEARTBEAT_ON_MS 100
-static const struct pwm_dt_spec led_green = PWM_DT_SPEC_GET(DT_NODELABEL(pwm_led_green));
-static struct k_work_delayable heartbeat_work;
-static bool heartbeat_on;
-
-static void lilac_heartbeat(struct k_work *work) {
-    heartbeat_on = !heartbeat_on;
-    uint32_t pulse = heartbeat_on ? led_green.period * 16 / 100 : 0;
-    if (pwm_set_pulse_dt(&led_green, pulse) != 0) {
-        LOG_WRN("heartbeat PWM write failed; stopping");
-        return;
-    }
-    k_work_schedule(&heartbeat_work, K_MSEC(heartbeat_on ? LILAC_HEARTBEAT_ON_MS
-        : LILAC_HEARTBEAT_PERIOD_MS - LILAC_HEARTBEAT_ON_MS));
 }
 
 // Python chooses brightness; native S0 gating survives Python failure.
@@ -150,14 +129,6 @@ static void power_led_update(struct k_work *work) {
     k_work_schedule(&power_led_work, K_MSEC(20));
 }
 
-static void lilac_heartbeat_start(void) {
-    if (!pwm_is_ready_dt(&led_green)) {
-        LOG_WRN("heartbeat PWM not ready");
-        return;
-    }
-    k_work_init_delayable(&heartbeat_work, lilac_heartbeat);
-    k_work_schedule(&heartbeat_work, K_NO_WAIT);
-}
 
 size_t lilac_input_count(void) {
     return ARRAY_SIZE(inputs);
@@ -356,10 +327,14 @@ void lilac_diagnostic_reset(void) {
         printk("Lilac GPIO initialization failed; halting before Python\n");
         for (;;) { k_sleep(K_FOREVER); }
     }
+    // Blank RGB on every reset/reload; policy starts in Python.
+    if (lilac_side_led_set(0, 0, 0, 0) != 0) {
+        LOG_WRN("side LED initialization failed");
+    }
     if (!reported) {
         reported = true;
         lilac_diagnostic_report();
-        lilac_heartbeat_start();
+
         lilac_fan_start();
         k_work_init_delayable(&power_led_work, power_led_update);
         k_work_schedule(&power_led_work, K_NO_WAIT);

@@ -16,11 +16,17 @@
         zephyr,console = &uart1;
     };
 
-    // Green battery LED, as stock laptop13/led_pins.dtsi. Native heartbeat only.
+    // Side RGB LEDs, as stock laptop13/led_pins.dtsi.
     lilac-leds {
         compatible = "pwm-leds";
         pwm_led_power: led-power {
             pwms = <&pwm5 0 PWM_HZ(324) PWM_POLARITY_NORMAL>;
+        };
+        pwm_led_red: led-red {
+            pwms = <&pwm3 0 PWM_HZ(324) PWM_POLARITY_NORMAL>;
+        };
+        pwm_led_blue: led-blue {
+            pwms = <&pwm2 0 PWM_HZ(324) PWM_POLARITY_NORMAL>;
         };
         pwm_led_green: led-green {
             pwms = <&pwm4 0 PWM_HZ(324) PWM_POLARITY_NORMAL>;
@@ -170,5 +176,19 @@
     actual-key-mask = <0xff 0xff 0xff 0x03 0xff 0xff 0xff 0xff 0xff 0x03 0xff 0xff 0x03 0xff 0xff 0xef>;
     pinctrl-0 = <&ksi0_gp31 &ksi1_gp30 &ksi2_gp27 &ksi3_gp26 &ksi4_gp25 &ksi5_gp24 &ksi6_gp23 &ksi7_gp22
         &kso00_gp21 &kso01_gp20 &kso02_gp17 &kso03_gp16 &kso04_gp15 &kso05_gp14 &kso06_gp13 &kso07_gp12 &kso08_gp11 &kso09_gp10 &kso10_gp07 &kso11_gp06 &kso12_gp05 &kso13_gp04 &kso14_gp82 &kso15_gp83>;
+    pinctrl-names = "default";
+};
+
+// Stock RGB side LED channels, LFCLK, 324 Hz.
+&pwm2 {
+    status = "okay";
+    clock-bus = "NPCX_CLOCK_BUS_LFCLK";
+    pinctrl-0 = <&pwm2_gpc4>;
+    pinctrl-names = "default";
+};
+&pwm3 {
+    status = "okay";
+    clock-bus = "NPCX_CLOCK_BUS_LFCLK";
+    pinctrl-0 = <&pwm3_gp80>;
     pinctrl-names = "default";
 };

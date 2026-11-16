@@ -179,3 +179,6 @@ const char *lilac_power_out_name(int out);
 
 // White power LED brightness (0..100), gated off outside native S0.
 int lilac_power_led_set(int percent);
+
+// RGB duty percentages, sides bit 0 left / bit 1 right.
+int lilac_side_led_set(int red, int green, int blue, int sides);

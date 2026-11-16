@@ -28,6 +28,25 @@ static mp_obj_t lilac_power_led_set_fn(mp_obj_t percent) {
 }
 static MP_DEFINE_CONST_FUN_OBJ_1(lilac_power_led_set_obj, lilac_power_led_set_fn);
 
+//| def side_led_set(red: int, green: int, blue: int, sides: int) -> None:
+//|     """RGB duty 0..100; sides bit 0 = left, bit 1 = right."""
+static mp_obj_t side_led_set(size_t n_args, const mp_obj_t *args) {
+    int values[4];
+    for (size_t i = 0; i < 4; i++) {
+        mp_int_t value = mp_obj_get_int(args[i]);
+        if (value < 0 || value > (i == 3 ? 3 : 100)) {
+            mp_raise_OSError(EINVAL);
+        }
+        values[i] = value;
+    }
+    int ret = lilac_side_led_set(values[0], values[1], values[2], values[3]);
+    if (ret < 0) {
+        mp_raise_OSError(-ret);
+    }
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(side_led_set_obj, 4, 4, side_led_set);
+
 static void lilac_check(int ret) {
     if (ret == -EPERM) {
         mp_raise_ValueError(MP_ERROR_TEXT("register not in allowlist"));
@@ -577,6 +596,7 @@ static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(keyboard_map_obj, 2, 3, keyboard_map)
 static const mp_rom_map_elem_t lilac_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_keyboard_state), MP_ROM_PTR(&keyboard_state_obj) },
     { MP_ROM_QSTR(MP_QSTR_keyboard_map), MP_ROM_PTR(&keyboard_map_obj) },
+    { MP_ROM_QSTR(MP_QSTR_side_led_set), MP_ROM_PTR(&side_led_set_obj) },
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_lilac) },
     { MP_ROM_QSTR(MP_QSTR_inputs), MP_ROM_PTR(&lilac_inputs_obj) },
     { MP_ROM_QSTR(MP_QSTR_input), MP_ROM_PTR(&lilac_input_obj) },
