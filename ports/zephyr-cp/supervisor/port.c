@@ -485,8 +485,45 @@ static bool max_size_walker(void *ptr, size_t size, int used, void *user) {
     return true;
 }
 
+#ifdef CONFIG_COMMON_LIBC_MALLOC
+// Largest block Zephyr's malloc can currently provide, by binary search with
+// malloc/free. Used when every RAM region is shared with Zephyr's malloc
+// (no TLSF pool of our own), e.g. single-SRAM NPCX boards. The VM heap grows
+// by asking for MIN(this, ~double the current heap); answering a fixed 64 KB
+// there made every growth request fail once that much was not contiguous, so
+// a 112-byte allocation raised MemoryError with tens of KB free.
+// The VM heap takes the whole reported size when it cannot double, so keep
+// some of Zephyr's malloc for its other users (e.g. littlefs file caches).
+#define ZEPHYR_MALLOC_HEADROOM 2048
+
+static size_t zephyr_malloc_largest_free(void) {
+    size_t lo = 0;
+    size_t hi = (size_t)((uint8_t *)zephyr_malloc_top - (uint8_t *)zephyr_malloc_bottom);
+    if (hi == 0) {
+        hi = 256 * 1024;  // arena bounds unknown: still search, capped
+    }
+    while (lo < hi) {
+        size_t mid = lo + (hi - lo + 1) / 2;
+        void *probe = malloc(mid);
+        if (probe != NULL) {
+            free(probe);
+            lo = mid;
+        } else {
+            hi = mid - 1;
+        }
+    }
+    return lo;
+}
+#endif
+
 size_t port_heap_get_largest_free_size(void) {
     size_t max_size = 0;
+    #ifdef CONFIG_COMMON_LIBC_MALLOC
+    if (valid_pool_count == 0 && zephyr_malloc_active) {
+        size_t largest = zephyr_malloc_largest_free();
+        return largest > ZEPHYR_MALLOC_HEADROOM ? largest - ZEPHYR_MALLOC_HEADROOM : 0;
+    }
+    #endif
     if (valid_pool_count > 0) {
         for (size_t i = 0; i < CIRCUITPY_RAM_DEVICE_COUNT; i++) {
             if (pools[i] == NULL) {
