@@ -225,7 +225,6 @@ static mp_obj_t lilac_espi_status_fn(void) {
     mp_obj_t dict = mp_obj_new_dict(26);
     lilac_store(dict, "configured", MP_OBJ_NEW_SMALL_INT(st.config_result));
     lilac_store(dict, "vw_ready", mp_obj_new_bool(st.vw_ready));
-    lilac_store(dict, "backlight", mp_obj_new_bool(st.backlight));
     lilac_store(dict, "espi_rst", st.espi_rst < 0 ? mp_const_none : MP_OBJ_NEW_SMALL_INT(st.espi_rst));
     lilac_store(dict, "pltrst", st.pltrst < 0 ? mp_const_none : MP_OBJ_NEW_SMALL_INT(st.pltrst));
     static const struct { const char *name; size_t offset; } counters[] = {
@@ -450,6 +449,7 @@ static mp_obj_t lilac_power_status_fn(void) {
     lilac_store(dict, "outputs", outputs);
     lilac_store(dict, "inputs", inputs);
     lilac_store(dict, "vw_ready", mp_obj_new_bool(st.vw_ready));
+    lilac_store(dict, "backlight", mp_obj_new_bool(st.backlight));
     lilac_store(dict, "lease_ms", mp_obj_new_int(st.lease_ms));
     lilac_store(dict, "ticks", mp_obj_new_int_from_uint(st.ticks));
     lilac_store(dict, "write_errors", mp_obj_new_int_from_uint(st.write_errors));
