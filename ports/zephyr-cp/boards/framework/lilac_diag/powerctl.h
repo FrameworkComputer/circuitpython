@@ -100,6 +100,10 @@ int powerctl_request(struct powerctl *pc, int out, int level, int64_t now,
 // 20 ms power-button press (stock G3S5): RSMRST high for 90 ms, PBTN released.
 int powerctl_pbtn_pulse(struct powerctl *pc, int64_t now,
     struct powerctl_write *w, size_t *n);
+// Physical button only: PBTN changes with no lease refresh. Requires an
+// armed, healthy, running host; never release PBTN into G3 or a boot pulse.
+size_t powerctl_button_signal(struct powerctl *pc, bool pressed, int64_t now,
+    struct powerctl_write *w);
 void powerctl_heartbeat(struct powerctl *pc, int64_t now);
 // Immediate shutdown in force_g3 order (stock chipset_force_shutdown()),
 // not latched. Returns the writes (all outputs low).

@@ -183,3 +183,7 @@ int lilac_power_led_set(int percent);
 
 // RGB duty percentages, sides bit 0 left / bit 1 right.
 int lilac_side_led_set(int red, int green, int blue, int sides);
+
+int lilac_button_arm(bool enabled);
+bool lilac_button_poll(void);
+void lilac_button_state(int32_t out[7]);

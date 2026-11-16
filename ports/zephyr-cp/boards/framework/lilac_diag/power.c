@@ -16,6 +16,7 @@
 #include "lilac_diag.h"
 #include "powerctl.h"
 #include "keyboard.h"
+#include "buttonctl.h"
 
 LOG_MODULE_REGISTER(lilac_power, LOG_LEVEL_INF);
 
@@ -61,6 +62,8 @@ static bool fp_power_on;
 
 static struct k_spinlock lock;
 static struct powerctl pc;
+static struct buttonctl button;
+static const struct pin button_pin = PIN(gpiod, 2); // on_off_btn_l, active low
 static struct k_timer timer;
 static uint32_t ticks, write_errors, input_errors;
 
@@ -111,6 +114,19 @@ static void timer_handler(struct k_timer *t) {
     sample(now);
     size_t n = powerctl_tick(&pc, now, w);
     apply(w, n);
+    bool powered = powerctl_any_on(&pc);
+    bool healthy = pc.armed && pc.fault == PWR_FAULT_NONE;
+    bool host_ready = healthy && pc.out[PWR_RSMRST] && pc.in[PWR_IN_SLP_S5];
+    int action = buttonctl_tick(&button,
+        gpio_pin_get_raw(button_pin.port, button_pin.pin),
+        healthy && !powered, host_ready, powered, now);
+    if (action & BUTTON_OFF) {
+        n = powerctl_power_off(&pc, now, w);
+        apply(w, n);
+    } else if (action & (BUTTON_ASSERT | BUTTON_RELEASE)) {
+        n = powerctl_button_signal(&pc, action & BUTTON_ASSERT, now, w);
+        apply(w, n);
+    }
     lilac_keyboard_power(pc.armed && !pc.fault && pc.out[PWR_SYSON]);
     bool periph = powerctl_s0_peripherals(&pc);
     if (periph != periph_on) {
@@ -130,6 +146,7 @@ static void timer_handler(struct k_timer *t) {
 
 static int lilac_power_init(void) {
     powerctl_init(&pc, LILAC_POWER_ARMED, k_uptime_get());
+    buttonctl_arm(&button, false, k_uptime_get());
     k_timer_init(&timer, timer_handler, NULL);
     k_timer_start(&timer, K_MSEC(1), K_MSEC(1));
     return 0;
@@ -182,6 +199,7 @@ void lilac_power_off(void) {
 void lilac_power_reload(void) {
     struct powerctl_write w[PWR_MAX_WRITES];
     k_spinlock_key_t key = k_spin_lock(&lock);
+    buttonctl_arm(&button, false, k_uptime_get());
     if (powerctl_any_on(&pc)) {
         size_t n = powerctl_emergency(&pc, PWR_FAULT_RELOAD, k_uptime_get(), w);
         apply(w, n);
@@ -221,4 +239,33 @@ void lilac_power_status(struct lilac_power_status *st) {
 
 const char *lilac_power_out_name(int out) {
     return powerctl_out_name(out);
+}
+
+// Arming is policy opt-in, not an alternate way around the rail interlocks.
+int lilac_button_arm(bool enabled) {
+    k_spinlock_key_t key = k_spin_lock(&lock);
+    if (enabled && (!pc.armed || pc.fault || powerctl_any_on(&pc))) {
+        k_spin_unlock(&lock, key);
+        return -EBUSY;
+    }
+    if (!enabled && button.host_low) {
+        struct powerctl_write w[PWR_MAX_WRITES];
+        apply(w, powerctl_button_signal(&pc, false, k_uptime_get(), w));
+    }
+    buttonctl_arm(&button, enabled, k_uptime_get());
+    k_spin_unlock(&lock, key);
+    return 0;
+}
+bool lilac_button_poll(void) {
+    k_spinlock_key_t key = k_spin_lock(&lock);
+    bool pending = buttonctl_poll(&button);
+    k_spin_unlock(&lock, key);
+    return pending;
+}
+void lilac_button_state(int32_t out[7]) {
+    k_spinlock_key_t key = k_spin_lock(&lock);
+    out[0] = button.enabled; out[1] = button.ready; out[2] = button.pressed;
+    out[3] = button.start_pending; out[4] = button.presses;
+    out[5] = button.holds; out[6] = button.errors;
+    k_spin_unlock(&lock, key);
 }

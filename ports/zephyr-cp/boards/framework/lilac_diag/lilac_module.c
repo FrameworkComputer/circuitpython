@@ -594,10 +594,30 @@ static mp_obj_t keyboard_map(size_t n, const mp_obj_t *args) {
 }
 static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(keyboard_map_obj, 2, 3, keyboard_map);
 
+// Native GPD2 button: arm/disarm, consume one off-state press, diagnostics.
+static mp_obj_t lilac_button_arm_fn(mp_obj_t enabled) {
+    int ret = lilac_button_arm(mp_obj_is_true(enabled));
+    if (ret < 0) { mp_raise_OSError(-ret); }
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_1(lilac_button_arm_obj, lilac_button_arm_fn);
+static mp_obj_t lilac_button_poll_fn(void) { return mp_obj_new_bool(lilac_button_poll()); }
+static MP_DEFINE_CONST_FUN_OBJ_0(lilac_button_poll_obj, lilac_button_poll_fn);
+static mp_obj_t lilac_button_state_fn(void) {
+    int32_t v[7]; mp_obj_t items[7];
+    lilac_button_state(v);
+    for (int i = 0; i < 7; i++) { items[i] = mp_obj_new_int(v[i]); }
+    return mp_obj_new_tuple(7, items);
+}
+static MP_DEFINE_CONST_FUN_OBJ_0(lilac_button_state_obj, lilac_button_state_fn);
+
 static const mp_rom_map_elem_t lilac_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_keyboard_state), MP_ROM_PTR(&keyboard_state_obj) },
     { MP_ROM_QSTR(MP_QSTR_keyboard_map), MP_ROM_PTR(&keyboard_map_obj) },
     { MP_ROM_QSTR(MP_QSTR_side_led_set), MP_ROM_PTR(&side_led_set_obj) },
+    { MP_ROM_QSTR(MP_QSTR_button_arm), MP_ROM_PTR(&lilac_button_arm_obj) },
+    { MP_ROM_QSTR(MP_QSTR_button_poll), MP_ROM_PTR(&lilac_button_poll_obj) },
+    { MP_ROM_QSTR(MP_QSTR_button_state), MP_ROM_PTR(&lilac_button_state_obj) },
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_lilac) },
     { MP_ROM_QSTR(MP_QSTR_inputs), MP_ROM_PTR(&lilac_inputs_obj) },
     { MP_ROM_QSTR(MP_QSTR_input), MP_ROM_PTR(&lilac_input_obj) },

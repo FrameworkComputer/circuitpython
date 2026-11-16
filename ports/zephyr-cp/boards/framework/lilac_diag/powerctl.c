@@ -192,6 +192,17 @@ int powerctl_request(struct powerctl *pc, int out, int level, int64_t now,
     return 0;
 }
 
+size_t powerctl_button_signal(struct powerctl *pc, bool pressed, int64_t now,
+    struct powerctl_write *w) {
+    size_t n = 0;
+    if (!pc->armed || pc->fault || !pc->out[PWR_RSMRST] ||
+        (pressed && (!pc->in[PWR_IN_SLP_S5] || powering_down(pc))) || pc->pbtn_release_ms >= 0) {
+        return 0;
+    }
+    put(pc, PWR_PBTN, !pressed, now, w, &n);
+    return n;
+}
+
 int powerctl_pbtn_pulse(struct powerctl *pc, int64_t now,
     struct powerctl_write *w, size_t *n) {
     *n = 0;
