@@ -73,7 +73,7 @@ power-good timeout or loss, thermal halt, eSPI hang, a 1 s Python lease
 expiry or a reload. `power.c` runs it from a 1 ms kernel timer;
 `lilac.power_*` is the Python side. Images up to 8 were **disarmed**.
 
-Image 9 (2026-11-15, not yet flashed when written): **armed**
+Image 9 (2026-11-15, flashed and run on Lilac; images 10-12 keep it): **armed**
 (`LILAC_POWER_ARMED` 1, the header default; user decision with EC-telemetry-only
 measurement, gate D/E option A in the playground plan). Assertions follow the
 interlocks above. Also: the ISL9241 adapter current limits (0x3f, 0x3b) join
@@ -85,14 +85,18 @@ shared-memory window readable and masked-writable from Python
 (`lilac.memmap_read/memmap_write`) except the native host-command flags byte
 0x27 (EPERM; check in pure `hostif.c`).
 
-Image 10 (2026-11-15): allocation-light status calls for the S0 service
+Image 10 (2026-11-15, run on Lilac): allocation-light status calls for the S0 service
 loop (`lilac.power_names/power_state/fan_state/port80_last`, small tuples
 instead of string-keyed dicts), `lilac.heap_info()` (outer heap largest free
 block), a 512-deep Port 80 ring that keeps the newest codes, and the fan
 monitor treating the sensor rail as powered only after `slp_s3_l` has been
 high 500 ms (an I2C bus error on the first read at S0 entry before).
 
-Image 12 (2026-11-16): S0 peripherals as stock's chipset resume/suspend
+Image 11 (2026-11-16, `f07c3b3a1b`): `supervisor/port.c` reports the real largest
+free block of Zephyr's malloc (heap growth failed with a fixed 64 KB before).
+
+Image 12 (2026-11-16, running on Lilac; BIOS setup visible on the eDP panel
+in run 9): S0 peripherals as stock's chipset resume/suspend
 hooks — `ec_bkoff_l` (GPC7, panel backlight enable, stock
 `gpio_sm_panel_bken_ec`) is driven high while SYS_PWRGD is asserted and
 `slp_s3_l` is high (`powerctl_s0_peripherals()`, applied from the 1 ms tick),
